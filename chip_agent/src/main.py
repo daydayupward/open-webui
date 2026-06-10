@@ -1,17 +1,14 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import List, Dict, Any
-from src.graph import build_graph
-from langchain_core.messages import HumanMessage
 import time
 import uuid
+from fastapi import FastAPI
+
+from src.graph import build_graph
+from src.api_models import ChatRequest
+from src.message_utils import openai_to_langchain
+from src.response_formatter import format_openai_response
 
 app = FastAPI()
 graph = build_graph()
-
-class ChatRequest(BaseModel):
-    messages: List[Dict[str, str]]
-    model: str = "default"
 
 @app.get("/v1/models")
 async def list_models():
@@ -29,21 +26,21 @@ async def list_models():
 
 @app.post("/v1/chat/completions")
 async def chat_completions(req: ChatRequest):
-    last_msg = req.messages[-1]["content"]
-    result = graph.invoke({"messages": [HumanMessage(content=last_msg)]})
-    final_text = result["messages"][-1].content
+    request_id = uuid.uuid4().hex
+    lc_messages = openai_to_langchain(req.messages)
     
-    return {
-        "id": f"chatcmpl-{uuid.uuid4().hex}",
-        "object": "chat.completion",
-        "created": int(time.time()),
-        "model": req.model,
-        "choices": [{
-            "index": 0,
-            "message": {
-                "role": "assistant",
-                "content": final_text
-            },
-            "finish_reason": "stop"
-        }]
+    initial_state = {
+        "messages": lc_messages,
+        "request_id": request_id,
+        "route": "",
+        "metadata": {},
+        "retrieved_docs": [],
+        "tool_logs": [],
+        "final_answer": "",
+        "errors": []
     }
+    
+    result = graph.invoke(initial_state)
+    
+    response = format_openai_response(result, req.model)
+    return response.model_dump()

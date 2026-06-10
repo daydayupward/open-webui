@@ -7,21 +7,29 @@ from langchain_core.messages import HumanMessage, AIMessage
 @patch("src.graph.eda_script_expert_node")
 @patch("src.graph.metrics_analyst_node")
 def test_graph_routing(mock_metrics, mock_eda, mock_pdk, mock_get_llm):
-    # Mock routing LLM calls
+    # Mock routing LLM calls (only one call needed in single-pass layout)
     mock_llm = MagicMock()
-    # Return sequence: PDK first, then FINISH
-    mock_llm.invoke.side_effect = [
-        AIMessage(content='{"next": "pdk_expert"}'),
-        AIMessage(content='{"next": "FINISH"}')
-    ]
+    mock_llm.invoke.return_value = AIMessage(content='{"next": "pdk_expert"}')
     mock_get_llm.return_value = mock_llm
 
     # Mock PDK expert implementation
     mock_pdk.return_value = {"messages": [AIMessage(content="[PDK Expert] The metal pitch is 36nm.")]}
 
     graph = build_graph()
-    result = graph.invoke({"messages": [HumanMessage(content="What is N5 M3 pitch?")]})
+    initial_state = {
+        "messages": [HumanMessage(content="What is N5 M3 pitch?")],
+        "request_id": "test-req-id",
+        "route": "",
+        "metadata": {},
+        "retrieved_docs": [],
+        "tool_logs": [],
+        "final_answer": "",
+        "errors": []
+    }
+    result = graph.invoke(initial_state)
     
-    assert len(result["messages"]) > 1
-    assert "[PDK Expert]" in result["messages"][-1].content
+    assert "messages" in result
+    assert result["final_answer"] == "[PDK Expert] The metal pitch is 36nm."
     mock_pdk.assert_called_once()
+    # In single-pass pipeline, supervisor LLM is invoked exactly once
+    mock_llm.invoke.assert_called_once()
