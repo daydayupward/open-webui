@@ -13,6 +13,20 @@ class ChatRequest(BaseModel):
     messages: List[Dict[str, str]]
     model: str = "default"
 
+@app.get("/v1/models")
+async def list_models():
+    return {
+        "object": "list",
+        "data": [
+            {
+                "id": "chip-agentic-rag",
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": "chip-agent"
+            }
+        ]
+    }
+
 @app.post("/v1/chat/completions")
 async def chat_completions(req: ChatRequest):
     last_msg = req.messages[-1]["content"]

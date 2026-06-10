@@ -22,3 +22,11 @@ def test_chat_completions():
     data = response.json()
     assert "choices" in data
     assert "PDK" in data["choices"][0]["message"]["content"]
+
+def test_list_models():
+    response = client.get("/v1/models")
+    assert response.status_code == 200
+    data = response.json()
+    assert "data" in data
+    assert data["data"][0]["id"] == "chip-agentic-rag"
+
