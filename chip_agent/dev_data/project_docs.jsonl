@@ -1,0 +1,2 @@
+{"text": "Project Proj_A design specification: Targets high-performance CPU core using N5 process node and Innovus implementation tool. Timing target is 2.5GHz with strict timing convergence guidelines.", "metadata": {"category": "Project_Doc", "project_id": "Proj_A", "node": "N5", "tool": "Innovus"}}
+{"text": "Project Proj_B engineering notes: Targets low-power IoT SoC using N7 process node and ICC2 layout tool. Focuses on area reduction and leakage optimization.", "metadata": {"category": "Project_Doc", "project_id": "Proj_B", "node": "N7", "tool": "ICC2"}}

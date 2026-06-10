@@ -1,0 +1,2 @@
+{"text": "Innovus command 'floorPlan': Configures floorplan boundaries, core margins, and row coordinates. Example usage: floorPlan -site core -r 1 0.7 10 10 10 10", "metadata": {"category": "EDA", "tool": "Innovus"}}
+{"text": "ICC2 command 'initialize_floorplan': Initializes design floorplan layout, specifying core boundary, block sizes, and boundary clearance. Example: initialize_floorplan -core_utilization 0.7", "metadata": {"category": "EDA", "tool": "ICC2"}}

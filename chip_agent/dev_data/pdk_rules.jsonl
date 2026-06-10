@@ -1,0 +1,3 @@
+{"text": "The M3 metal pitch for N5 process node is 36nm. This ensures optimal routing density.", "metadata": {"category": "PDK", "node": "N5", "tool": "Innovus"}}
+{"text": "The M3 metal pitch for N7 process node is 40nm. It requires relaxed spacing constraints compared to N5.", "metadata": {"category": "PDK", "node": "N7", "tool": "Innovus"}}
+{"text": "N5 process node DRC minimum spacing rule: The distance between parallel metal lines on M1 must be at least 28nm.", "metadata": {"category": "PDK", "node": "N5", "tool": "Calibre"}}
