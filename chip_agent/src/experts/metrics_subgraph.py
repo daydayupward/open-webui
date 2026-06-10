@@ -165,38 +165,40 @@ def execute_sql_node(state: MetricsSubgraphState) -> dict:
     project_id = state.get("project_id", "")
 
     try:
-        # Inject project_id filter if not already present
+        # Inject project_id filter if not already present (using parameterized query)
         sql_to_execute = generated_sql
+        params = None
         if project_id and "project_id" not in generated_sql.lower():
             # Add WHERE clause or append to existing WHERE
             if "where" in generated_sql.lower():
-                sql_to_execute = generated_sql + f" AND project_id = '{project_id}'"
+                sql_to_execute = generated_sql + " AND project_id = %s"
             elif "order by" in generated_sql.lower():
                 # Insert WHERE before ORDER BY
                 idx = generated_sql.lower().index("order by")
                 sql_to_execute = (
                     generated_sql[:idx]
-                    + f"WHERE project_id = '{project_id}' "
+                    + "WHERE project_id = %s "
                     + generated_sql[idx:]
                 )
             elif "group by" in generated_sql.lower():
                 idx = generated_sql.lower().index("group by")
                 sql_to_execute = (
                     generated_sql[:idx]
-                    + f"WHERE project_id = '{project_id}' "
+                    + "WHERE project_id = %s "
                     + generated_sql[idx:]
                 )
             elif "limit" in generated_sql.lower():
                 idx = generated_sql.lower().index("limit")
                 sql_to_execute = (
                     generated_sql[:idx]
-                    + f"WHERE project_id = '{project_id}' "
+                    + "WHERE project_id = %s "
                     + generated_sql[idx:]
                 )
             else:
-                sql_to_execute = generated_sql.rstrip(";") + f" WHERE project_id = '{project_id}';"
+                sql_to_execute = generated_sql.rstrip(";") + " WHERE project_id = %s;"
+            params = (project_id,)
 
-        results = execute_read_query(sql_to_execute)
+        results = execute_read_query(sql_to_execute, params=params)
 
         return {
             "sql_results": results,

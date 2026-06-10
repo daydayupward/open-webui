@@ -23,13 +23,31 @@ def test_eda_script_expert(mock_get_llm, mock_retrieve):
     assert len(result["messages"]) >= 1
     assert "set_db_floplan_mode" in result["messages"][0].content or "floorplan" in result["messages"][0].content
 
-@patch("src.experts.metrics_analyst.get_llm")
-def test_metrics_analyst(mock_get_llm):
+@patch("src.experts.metrics_subgraph.retrieve_project_docs")
+@patch("src.experts.metrics_subgraph.execute_read_query")
+@patch("src.experts.metrics_subgraph.validate_sql_query")
+@patch("src.experts.metrics_subgraph.get_llm")
+def test_metrics_analyst(mock_get_llm, mock_validate, mock_execute, mock_retrieve):
     mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(content="Design PPA: power is 1.2W")
+    mock_llm.invoke.side_effect = [
+        AIMessage(content="sql"),  # route classification
+        AIMessage(content="SELECT wns, tns, power, area FROM project_metrics WHERE project_id = 'P100';"),  # SQL generation
+        AIMessage(content="Design PPA: WNS is -0.15ns, TNS is -1.2ns, power is 1.2W."),  # summarize
+    ]
     mock_get_llm.return_value = mock_llm
+    mock_validate.return_value = True
+    mock_execute.return_value = [{"wns": -0.15, "tns": -1.2, "power": 1.2, "area": 5000}]
+    mock_retrieve.return_value = {
+        "chunks": [],
+        "logs": {"step": "Project Retrieval", "status": "success"},
+    }
 
-    state = {"messages": [HumanMessage(content="Timing report metrics")]}
+    state = {
+        "messages": [HumanMessage(content="Timing report metrics")],
+        "metadata": {"project_id": "P100"},
+    }
     result = metrics_analyst_node(state)
-    assert len(result["messages"]) == 1
-    assert "power" in result["messages"][0].content
+    assert len(result["messages"]) >= 1
+    assert "final_answer" in result
+    assert "retrieved_docs" in result
+    assert "tool_logs" in result

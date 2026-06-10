@@ -199,7 +199,7 @@ def test_execute_sql_node_error(mock_execute):
 
 @patch("src.experts.metrics_subgraph.execute_read_query")
 def test_execute_sql_node_injects_project_id(mock_execute):
-    """Execute SQL node should inject project_id filter when missing."""
+    """Execute SQL node should inject project_id filter when missing using parameterized query."""
     mock_execute.return_value = [{"wns": -0.15}]
 
     state = {
@@ -209,8 +209,10 @@ def test_execute_sql_node_injects_project_id(mock_execute):
     result = execute_sql_node(state)
 
     executed_sql = result["tool_logs"][0]["executed_sql"]
-    assert "P100" in executed_sql
     assert "project_id" in executed_sql
+    assert "%s" in executed_sql
+    # Verify the parameter was passed correctly
+    mock_execute.assert_called_once_with(executed_sql, params=("P100",))
 
 
 @patch("src.experts.metrics_subgraph.retrieve_project_docs")
