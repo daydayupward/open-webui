@@ -29,3 +29,17 @@ def test_validate_sql_query_disallowed_tables():
 def test_validate_sql_query_multiple_statements():
     # Multiple statements
     assert validate_sql_query("SELECT * FROM project_metrics; SELECT * FROM project_metrics") is False
+
+def test_validate_sql_query_security_fixes():
+    # 1. Comment bypass test cases
+    assert validate_sql_query("SELECT * FROM/*comment*/other_table") is False
+    assert validate_sql_query("SELECT * FROM--comment\nother_table") is False
+    assert validate_sql_query("SELECT * FROM/*comment*/project_metrics") is True
+
+    # 2. Parenthesized bypass test cases
+    assert validate_sql_query("SELECT * FROM (other_table JOIN project_metrics ON 1=1)") is False
+    assert validate_sql_query("SELECT * FROM ((other_table))") is False
+
+    # 3. Parenthesized allowed test cases
+    assert validate_sql_query("SELECT * FROM (project_metrics JOIN (SELECT * FROM project_metrics) sub ON 1=1)") is True
+    assert validate_sql_query("SELECT * FROM ((project_metrics))") is True

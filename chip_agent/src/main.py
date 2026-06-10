@@ -1,11 +1,13 @@
 import time
 import uuid
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 
 from src.graph import build_graph
 from src.api_models import ChatRequest
 from src.message_utils import openai_to_langchain
 from src.response_formatter import format_openai_response
+from src.streaming import astream_chat_completion_events
 
 app = FastAPI()
 graph = build_graph()
@@ -40,6 +42,10 @@ async def chat_completions(req: ChatRequest):
         "errors": []
     }
     
+    if req.stream:
+        generator = astream_chat_completion_events(graph, initial_state, req.model)
+        return StreamingResponse(generator, media_type="text/event-stream")
+        
     result = graph.invoke(initial_state)
     
     response = format_openai_response(result, req.model)

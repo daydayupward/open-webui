@@ -54,11 +54,13 @@ def clean_sql_for_validation(sql: str) -> str:
             
         if char == '-' and i + 1 < n and sql[i+1] == '-':
             in_single_comment = True
+            cleaned.append(' ')
             i += 2
             continue
             
         if char == '/' and i + 1 < n and sql[i+1] == '*':
             in_multi_comment = True
+            cleaned.append(' ')
             i += 2
             continue
             
@@ -114,8 +116,20 @@ def validate_sql_query(query: str) -> bool:
             part = part.strip()
             if not part:
                 continue
-            if part.startswith('('):
+                
+            # Strip outer parentheses to see if it's a subquery or a parenthesized table/join
+            stripped_part = part
+            while stripped_part.startswith('('):
+                stripped_part = stripped_part[1:].strip()
+            while stripped_part.endswith(')'):
+                stripped_part = stripped_part[:-1].strip()
+                
+            if stripped_part.upper().startswith('SELECT'):
                 continue
+                
+            part = stripped_part
+            if not part:
+                return False
                 
             table_match = re.match(r'^([a-zA-Z0-9_\.\'"`]+)', part)
             if not table_match:

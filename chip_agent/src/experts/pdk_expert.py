@@ -1,43 +1,39 @@
-import os
-from typing import TypedDict, List
-from langchain_core.messages import AnyMessage, SystemMessage
-from src.utils import get_llm, get_embeddings
-from src.vector_store import get_vector_store
-
-class AgentState(TypedDict):
-    messages: List[AnyMessage]
+from langchain_core.messages import SystemMessage
+from src.state import AgentState
+from src.utils import get_llm
+from src.retrieval.pdk_retriever import retrieve_pdk_rules
+from src.prompts.pdk_prompt import PDK_SYSTEM_PROMPT
 
 def pdk_expert_node(state: AgentState) -> dict:
-    query = state["messages"][-1].content
+    query = ""
+    for msg in reversed(state.get("messages", [])):
+        msg_type = getattr(msg, "type", None)
+        if msg_type == "human" or msg.__class__.__name__ == "HumanMessage":
+            query = msg.content
+            break
+            
+    metadata = state.get("metadata", {})
+    retrieval_res = retrieve_pdk_rules(query, metadata)
     
-    # Initialize embeddings and vector store
-    embeddings = get_embeddings()
-    connection_string = os.getenv("DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/chip_design")
-    collection_name = "pdk_rules"
+    chunks = retrieval_res["chunks"]
+    logs = retrieval_res["logs"]
     
-    # Retrieve relevant context
-    context = ""
-    try:
-        vector_store = get_vector_store(
-            connection_string=connection_string,
-            collection_name=collection_name,
-            embeddings=embeddings
-        )
-        docs = vector_store.similarity_search(query, k=3)
-        context = "\n\n".join([doc.page_content for doc in docs])
-    except Exception as e:
-        context = "No database context found due to connection issue."
+    context = "\n\n".join([c.page_content for c in chunks])
+    if not context:
+        context = "No database context found due to connection issue or missing match."
         
-    # Call LLM to generate final response
     llm = get_llm()
     system_prompt = SystemMessage(
-        content=f"You are a specialized PDK Expert for backend chip physical design. "
-                f"Your focus is process design kit rules, DRC limitations, LVS setup, pitch, and SPICE parameters. "
-                f"Answer the user's question using the retrieved PDK context below. "
-                f"If the context does not contain enough information, state that clearly but try to answer as best as possible.\n\n"
-                f"Retrieved PDK Context:\n{context}"
+        content=PDK_SYSTEM_PROMPT.format(context=context)
     )
     
     messages = [system_prompt] + state["messages"]
     response = llm.invoke(messages)
-    return {"messages": [response]}
+    
+    serializable_chunks = [c.model_dump() for c in chunks]
+    
+    return {
+        "messages": [response],
+        "retrieved_docs": serializable_chunks,
+        "tool_logs": [logs]
+    }

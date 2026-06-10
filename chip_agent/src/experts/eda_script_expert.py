@@ -1,17 +1,42 @@
-from typing import TypedDict, List
-from langchain_core.messages import AnyMessage, SystemMessage
-from src.utils import get_llm
-
-class AgentState(TypedDict):
-    messages: List[AnyMessage]
+from src.state import AgentState
+from src.experts.eda_script_subgraph import build_eda_subgraph
 
 def eda_script_expert_node(state: AgentState) -> dict:
-    llm = get_llm()
-    system_prompt = SystemMessage(
-        content="You are a specialized EDA Script Expert for backend chip physical design. "
-                "Your focus is tool commands and Tcl/Skill script generation for Innovus, ICC2, Calibre, etc. "
-                "Output clear scripts, tool usage instructions, and explanation."
-    )
-    messages = [system_prompt] + state["messages"]
-    response = llm.invoke(messages)
-    return {"messages": [response]}
+    """
+    EDA Script Expert node that delegates execution to the EDA script subgraph,
+    which performs a retrieve-generate-lint-refine loop.
+    """
+    query = ""
+    for msg in reversed(state.get("messages", [])):
+        msg_type = getattr(msg, "type", None)
+        if msg_type == "human" or msg.__class__.__name__ == "HumanMessage":
+            query = msg.content
+            break
+            
+    # Initialize the subgraph state
+    sub_initial_state = {
+        "messages": state.get("messages", []),
+        "query": query,
+        "metadata": state.get("metadata", {}),
+        "retrieved_docs": [],
+        "tool_logs": [],
+        "iterations": 0,
+        "linter_result": {},
+        "previous_response": "",
+        "final_answer": ""
+    }
+    
+    # Run the compiled subgraph
+    subgraph = build_eda_subgraph()
+    sub_res = subgraph.invoke(sub_initial_state)
+    
+    # Extract new messages generated inside the subgraph
+    original_message_count = len(state.get("messages", []))
+    new_messages = sub_res["messages"][original_message_count:]
+    
+    return {
+        "messages": new_messages,
+        "retrieved_docs": sub_res.get("retrieved_docs", []),
+        "tool_logs": sub_res.get("tool_logs", []),
+        "final_answer": sub_res.get("final_answer", "")
+    }

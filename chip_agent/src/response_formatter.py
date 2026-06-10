@@ -6,7 +6,6 @@ def format_openai_response(state: dict, model_name: str) -> ChatCompletionRespon
     final_answer = state.get("final_answer", "")
     if not final_answer:
         for msg in reversed(state.get("messages", [])):
-            # Handle LangChain message objects
             msg_type = getattr(msg, "type", None)
             if msg_type == "ai" or msg.__class__.__name__ == "AIMessage":
                 final_answer = msg.content
@@ -31,3 +30,22 @@ def format_openai_response(state: dict, model_name: str) -> ChatCompletionRespon
         model=model_name,
         choices=[choice]
     )
+
+def format_openai_chunk(
+    completion_id: str,
+    content: str,
+    created_time: int,
+    model_name: str,
+    finish_reason: str = None
+) -> dict:
+    return {
+        "id": completion_id,
+        "object": "chat.completion.chunk",
+        "created": created_time,
+        "model": model_name,
+        "choices": [{
+            "index": 0,
+            "delta": {"content": content} if content is not None else {},
+            "finish_reason": finish_reason
+        }]
+    }
