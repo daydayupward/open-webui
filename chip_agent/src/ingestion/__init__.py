@@ -1,1 +1,1 @@
-"""Ingestion pipeline: loading, chunking, and document models."""
+"""Ingestion pipeline: loading, chunking, metadata mapping, and document models."""
