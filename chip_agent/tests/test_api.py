@@ -1,7 +1,17 @@
-from fastapi.testclient import TestClient
-from src.main import app
+from unittest.mock import patch, MagicMock
+from langchain_core.messages import AIMessage
 
-client = TestClient(app)
+# Patch build_graph before importing app
+with patch("src.main.build_graph") as mock_build_graph:
+    mock_graph = MagicMock()
+    mock_graph.invoke.return_value = {
+        "messages": [AIMessage(content="[PDK Expert] The metal pitch is 36nm.")]
+    }
+    mock_build_graph.return_value = mock_graph
+
+    from src.main import app
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
 
 def test_chat_completions():
     response = client.post(
