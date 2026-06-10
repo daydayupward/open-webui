@@ -16,7 +16,7 @@ This project introduces a standalone Agentic RAG backend service designed to int
 ## 3. Data Ingestion & Indexing (The Foundation)
 To prevent retrieval pollution and context loss across complex documents (especially tables and hierarchical rules):
 - **Document Parsing**: Advanced parsing (e.g., LlamaParse or Unstructured) to retain table structures and document hierarchies.
-- **Metadata Tagging**: Strict labeling applied to all chunks injected into the Vector DB.
+- **Metadata Tagging**: Strict labeling applied to all chunks injected into the PostgreSQL (`pgvector`) database.
   - `category`: `[PDK | EDA | Project_Doc]`
   - `node`: `[N7 | N5 | ...]`
   - `tool`: `[Innovus | ICC2 | Calibre | ...]`
@@ -38,5 +38,5 @@ The Supervisor routes requests to one of three specialized Expert nodes:
 ## 5. Technology Stack
 - **Framework**: FastAPI, LangGraph, LangChain/LlamaIndex.
 - **Models**: Cloud API models or robust Local Models (e.g., nemotron-3-super-120b-a12b-fp8) capable of tool calling and complex routing.
-- **Vector Store**: Metadata-capable database (e.g., Milvus, Qdrant).
+- **Vector Store**: PostgreSQL (using the `pgvector` extension) for the initial MVP to verify RAG effectiveness, allowing a smooth upgrade path for larger data volumes later.
 - **Reranker**: Compatible external or local reranker model.
