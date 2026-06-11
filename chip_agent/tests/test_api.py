@@ -75,3 +75,21 @@ def test_list_models():
     data = response.json()
     assert "data" in data
     assert data["data"][0]["id"] == "chip-agentic-rag"
+
+def test_chat_completions_invalid_payload():
+    # Missing 'messages' field
+    response = client.post(
+        "/v1/chat/completions",
+        json={"model": "chip-agentic-rag"}
+    )
+    assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
+
+def test_chat_completions_invalid_types():
+    # 'messages' is a string instead of array
+    response = client.post(
+        "/v1/chat/completions",
+        json={"messages": "hello", "model": "chip-agentic-rag"}
+    )
+    assert response.status_code == 422

@@ -1,0 +1,62 @@
+{
+  "pdk": {
+    "n5": {
+      "query": "What is the M3 metal pitch for N5 process node?",
+      "expected_keywords": ["36nm", "N5"],
+      "unexpected_keywords": ["40nm", "N7"],
+      "metadata": {
+        "node": "N5",
+        "category": "PDK"
+      }
+    },
+    "n7": {
+      "query": "What is the M3 metal pitch for N7 process node?",
+      "expected_keywords": ["40nm", "N7"],
+      "unexpected_keywords": ["36nm", "N5"],
+      "metadata": {
+        "node": "N7",
+        "category": "PDK"
+      }
+    }
+  },
+  "eda": {
+    "innovus": {
+      "query": "Write an Innovus floorplan command.",
+      "expected_keywords": ["floorPlan", "Innovus"],
+      "unexpected_keywords": ["initialize_floorplan", "ICC2"],
+      "metadata": {
+        "tool": "Innovus",
+        "category": "EDA"
+      }
+    },
+    "icc2": {
+      "query": "Write an ICC2 floorplan command.",
+      "expected_keywords": ["initialize_floorplan", "ICC2"],
+      "unexpected_keywords": ["floorPlan", "Innovus"],
+      "metadata": {
+        "tool": "ICC2",
+        "category": "EDA"
+      }
+    }
+  },
+  "metrics": {
+    "proj_a": {
+      "query": "Summarize wns and tns history for Proj_A.",
+      "expected_keywords": ["Proj_A", "-0.12", "-0.05", "0.02"],
+      "unexpected_keywords": ["Proj_B", "-0.25", "-0.10"],
+      "metadata": {
+        "project_id": "Proj_A",
+        "category": "Project_Doc"
+      }
+    },
+    "proj_b": {
+      "query": "Summarize wns and tns history for Proj_B.",
+      "expected_keywords": ["Proj_B", "-0.25", "-0.10", "-0.02"],
+      "unexpected_keywords": ["Proj_A", "-0.12", "0.02"],
+      "metadata": {
+        "project_id": "Proj_B",
+        "category": "Project_Doc"
+      }
+    }
+  }
+}
