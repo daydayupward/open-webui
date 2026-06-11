@@ -304,19 +304,15 @@ class TestDeleteByDocId:
 
 
 class TestGetIndexedChunkIds:
-    @patch("src.ingestion.indexer.get_vector_store")
-    def test_returns_chunk_ids(self, mock_get_store):
-        mock_store = MagicMock()
-        mock_doc1 = Document(
-            page_content="text1",
-            metadata={"chunk_id": "id1", "doc_id": "doc1"},
-        )
-        mock_doc2 = Document(
-            page_content="text2",
-            metadata={"chunk_id": "id2", "doc_id": "doc1"},
-        )
-        mock_store.similarity_search.return_value = [mock_doc1, mock_doc2]
-        mock_get_store.return_value = mock_store
+    @patch("sqlalchemy.create_engine")
+    def test_returns_chunk_ids(self, mock_create_engine):
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = mock_conn
+        
+        # Mocking result rows (tuples)
+        mock_conn.execute.return_value = [("id1",), ("id2",)]
+        mock_create_engine.return_value = mock_engine
 
         chunk_ids = get_indexed_chunk_ids(
             connection_string="postgresql://test",
@@ -325,12 +321,16 @@ class TestGetIndexedChunkIds:
         )
 
         assert chunk_ids == ["id1", "id2"]
-
-    @patch("src.ingestion.indexer.get_vector_store")
-    def test_returns_empty_on_no_results(self, mock_get_store):
-        mock_store = MagicMock()
-        mock_store.similarity_search.return_value = []
-        mock_get_store.return_value = mock_store
+        mock_conn.execute.assert_called_once()
+        
+    @patch("sqlalchemy.create_engine")
+    def test_returns_empty_on_no_results(self, mock_create_engine):
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = mock_conn
+        
+        mock_conn.execute.return_value = []
+        mock_create_engine.return_value = mock_engine
 
         chunk_ids = get_indexed_chunk_ids(
             connection_string="postgresql://test",
@@ -340,11 +340,14 @@ class TestGetIndexedChunkIds:
 
         assert chunk_ids == []
 
-    @patch("src.ingestion.indexer.get_vector_store")
-    def test_filters_by_doc_id(self, mock_get_store):
-        mock_store = MagicMock()
-        mock_store.similarity_search.return_value = []
-        mock_get_store.return_value = mock_store
+    @patch("sqlalchemy.create_engine")
+    def test_filters_by_doc_id(self, mock_create_engine):
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = mock_conn
+        
+        mock_conn.execute.return_value = []
+        mock_create_engine.return_value = mock_engine
 
         get_indexed_chunk_ids(
             connection_string="postgresql://test",
@@ -353,15 +356,19 @@ class TestGetIndexedChunkIds:
             doc_id="specific_doc",
         )
 
-        mock_store.similarity_search.assert_called_once_with(
-            query="", k=10000, filter={"doc_id": "specific_doc"}
-        )
+        mock_conn.execute.assert_called_once()
+        call_args = mock_conn.execute.call_args[0]
+        params = call_args[1]
+        assert params["collection"] == "test_col"
+        assert params["doc_id"] == "specific_doc"
 
-    @patch("src.ingestion.indexer.get_vector_store")
-    def test_raises_on_error(self, mock_get_store):
-        mock_store = MagicMock()
-        mock_store.similarity_search.side_effect = Exception("Query failed")
-        mock_get_store.return_value = mock_store
+    @patch("sqlalchemy.create_engine")
+    def test_raises_on_error(self, mock_create_engine):
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = mock_conn
+        mock_conn.execute.side_effect = Exception("Query failed")
+        mock_create_engine.return_value = mock_engine
 
         with pytest.raises(RuntimeError, match="Failed to query indexed chunk_ids"):
             get_indexed_chunk_ids(

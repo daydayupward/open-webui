@@ -1,9 +1,13 @@
 import re
 import json
+import logging
 from langchain_core.messages import SystemMessage
 from src.utils import get_llm
 from src.prompts.supervisor_prompt import SYSTEM_PROMPT
 from src.metadata import QueryMetadata, normalize_metadata
+from src.constants import ExpertRoute
+
+logger = logging.getLogger(__name__)
 
 def parse_json_safely(text: str) -> dict:
     text = text.strip()
@@ -28,12 +32,12 @@ def parse_json_safely(text: str) -> dict:
             
     raise ValueError(f"Could not parse valid JSON from text: {text}")
 
-def run_supervisor(messages: list) -> dict:
+async def arun_supervisor(messages: list) -> dict:
     llm = get_llm()
     system_message = SystemMessage(content=SYSTEM_PROMPT)
     all_messages = [system_message] + messages
     
-    route = "finalizer"
+    route = ExpertRoute.FINALIZER
     metadata_dict = {
         "category": "General",
         "node": None,
@@ -44,15 +48,15 @@ def run_supervisor(messages: list) -> dict:
     }
     
     try:
-        response = llm.invoke(all_messages)
+        response = await llm.ainvoke(all_messages)
         content = response.content.strip()
         
         parsed = parse_json_safely(content)
         
-        next_step = parsed.get("next", "finalizer")
+        next_step = parsed.get("next", ExpertRoute.FINALIZER)
         if next_step == "FINISH":
-            route = "finalizer"
-        elif next_step in ["pdk_expert", "eda_script_expert", "metrics_analyst", "finalizer"]:
+            route = ExpertRoute.FINALIZER
+        elif next_step in [ExpertRoute.PDK, ExpertRoute.EDA, ExpertRoute.METRICS, ExpertRoute.FINALIZER]:
             route = next_step
             
         raw_meta = parsed.get("metadata", {})
@@ -68,7 +72,8 @@ def run_supervisor(messages: list) -> dict:
         normalized_meta = normalize_metadata(query_meta)
         metadata_dict = normalized_meta.model_dump()
         
-    except Exception:
+    except Exception as e:
+        logger.error("Supervisor routing failed: %s", e, exc_info=True)
         # Graceful fallback on any exception
         pass
         

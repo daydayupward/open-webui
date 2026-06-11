@@ -2,13 +2,15 @@ import pytest
 from unittest.mock import MagicMock, patch
 from src.sql.sql_client import execute_read_query, clean_db_url
 
-def test_clean_db_url():
+@pytest.mark.anyio
+async def test_clean_db_url():
     assert clean_db_url("postgresql+psycopg://user:pass@host:5432/db") == "postgresql://user:pass@host:5432/db"
     assert clean_db_url("postgresql+psycopg2://user:pass@host/db") == "postgresql://user:pass@host/db"
     assert clean_db_url("postgresql://user:pass@host/db") == "postgresql://user:pass@host/db"
 
 @patch("psycopg.connect")
-def test_execute_read_query_success(mock_connect):
+@pytest.mark.anyio
+async def test_execute_read_query_success(mock_connect):
     mock_conn = MagicMock()
     mock_cur = MagicMock()
     mock_connect.return_value.__enter__.return_value = mock_conn
@@ -37,7 +39,8 @@ def test_execute_read_query_success(mock_connect):
     ]
 
 @patch("psycopg.connect")
-def test_execute_read_query_exception(mock_connect):
+@pytest.mark.anyio
+async def test_execute_read_query_exception(mock_connect):
     mock_connect.side_effect = Exception("Connection failed")
     with pytest.raises(Exception, match="Connection failed"):
         with patch("src.sql.sql_client.settings") as mock_settings:

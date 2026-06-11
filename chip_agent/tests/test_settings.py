@@ -1,8 +1,10 @@
+import pytest
 import os
 from unittest.mock import patch
 from src.settings import Settings
 
-def test_settings_defaults():
+@pytest.mark.anyio
+async def test_settings_defaults():
     # Load settings with clear environment (or mock it)
     with patch.dict(os.environ, {}, clear=True):
         settings = Settings()
@@ -14,7 +16,8 @@ def test_settings_defaults():
         assert settings.rerank_base_url == "http://jmaicloud.jaguarmicro.com:8100/v1"
         assert settings.rerank_api_key == "gpustack_8a84577e7871ac6c_2c3d4ef8e376a5d2fca5ceb8e1cc4221"
 
-def test_settings_override():
+@pytest.mark.anyio
+async def test_settings_override():
     test_env = {
         "OPENAI_API_BASE_URL": "http://test-base:8000/v1",
         "OPENAI_API_KEY": "test-key",

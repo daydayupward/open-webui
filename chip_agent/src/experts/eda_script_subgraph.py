@@ -5,7 +5,7 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import AnyMessage, SystemMessage, AIMessage
 
 from src.utils import get_llm
-from src.retrieval.eda_retriever import retrieve_eda_manuals
+from src.retrieval.eda_retriever import aretrieve_eda_manuals
 from src.tools.eda_lint import lint_eda_script
 from src.prompts.eda_prompt import EDA_SCRIPT_GENERATION_PROMPT, EDA_SCRIPT_REFINEMENT_PROMPT
 
@@ -19,6 +19,7 @@ class EDASubgraphState(TypedDict):
     linter_result: Dict[str, Any]
     previous_response: str
     final_answer: str
+    temperature: float
 
 def extract_script(content: str) -> str:
     """Extracts code block content from markdown formatting if present."""
@@ -27,11 +28,11 @@ def extract_script(content: str) -> str:
         return match.group(1).strip()
     return content.strip()
 
-def retrieve_node(state: EDASubgraphState) -> dict:
+async def retrieve_node(state: EDASubgraphState) -> dict:
     query = state.get("query", "")
     metadata = state.get("metadata", {})
     
-    retrieval_res = retrieve_eda_manuals(query, metadata)
+    retrieval_res = await aretrieve_eda_manuals(query, metadata)
     
     chunks_data = [
         {"content": chunk.page_content, "metadata": chunk.metadata}
@@ -43,8 +44,8 @@ def retrieve_node(state: EDASubgraphState) -> dict:
         "tool_logs": [retrieval_res["logs"]]
     }
 
-def generate_node(state: EDASubgraphState) -> dict:
-    llm = get_llm()
+async def generate_node(state: EDASubgraphState) -> dict:
+    llm = get_llm(state.get("temperature", 0.0))
     context_str = "\n\n".join([
         f"Document Chunk:\n{doc['content']}"
         for doc in state.get("retrieved_docs", [])
@@ -57,14 +58,14 @@ def generate_node(state: EDASubgraphState) -> dict:
     )
     
     messages = [system_prompt] + state.get("messages", [])
-    response = llm.invoke(messages)
+    response = await llm.ainvoke(messages)
     
     return {
         "previous_response": response.content,
         "messages": [response]
     }
 
-def lint_node(state: EDASubgraphState) -> dict:
+async def lint_node(state: EDASubgraphState) -> dict:
     previous_response = state.get("previous_response", "")
     script = extract_script(previous_response)
     
@@ -85,8 +86,8 @@ def lint_node(state: EDASubgraphState) -> dict:
         "tool_logs": [log_entry]
     }
 
-def refine_node(state: EDASubgraphState) -> dict:
-    llm = get_llm()
+async def refine_node(state: EDASubgraphState) -> dict:
+    llm = get_llm(state.get("temperature", 0.0))
     query = state.get("query", "")
     previous_response = state.get("previous_response", "")
     linter_result = state.get("linter_result", {})
@@ -104,14 +105,14 @@ def refine_node(state: EDASubgraphState) -> dict:
     )
     
     messages = [system_prompt] + state.get("messages", [])
-    response = llm.invoke(messages)
+    response = await llm.ainvoke(messages)
     
     return {
         "previous_response": response.content,
         "messages": [response]
     }
 
-def finalize_node(state: EDASubgraphState) -> dict:
+async def finalize_node(state: EDASubgraphState) -> dict:
     return {
         "final_answer": state.get("previous_response", "")
     }

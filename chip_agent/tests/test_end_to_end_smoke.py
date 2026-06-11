@@ -19,11 +19,13 @@ def conflict_samples():
     return get_conflict_samples()
 
 @patch("src.utils.ChatOpenAI")
-@patch("src.retrieval.pdk_retriever.query_vector_store")
-def test_pdk_end_to_end_smoke(mock_query_store, mock_chat_openai, conflict_samples):
+@patch("src.vector_store.aquery_vector_store")
+@pytest.mark.anyio
+async def test_pdk_end_to_end_smoke(mock_query_store, mock_chat_openai, conflict_samples):
     # Mock LLM for supervisor and pdk expert
-    mock_llm = MagicMock()
-    mock_llm.invoke.side_effect = [
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.side_effect = [
         # Supervisor
         AIMessage(content='{"next": "pdk_expert", "metadata": {"category": "PDK", "node": "N5"}}'),
         # PDK Expert
@@ -50,11 +52,13 @@ def test_pdk_end_to_end_smoke(mock_query_store, mock_chat_openai, conflict_sampl
     assert "N5" in content
 
 @patch("src.utils.ChatOpenAI")
-@patch("src.retrieval.eda_retriever.query_vector_store")
-def test_eda_end_to_end_smoke(mock_query_store, mock_chat_openai, conflict_samples):
+@patch("src.vector_store.aquery_vector_store")
+@pytest.mark.anyio
+async def test_eda_end_to_end_smoke(mock_query_store, mock_chat_openai, conflict_samples):
     # Mock LLM for supervisor and eda script generator
-    mock_llm = MagicMock()
-    mock_llm.invoke.side_effect = [
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.side_effect = [
         # Supervisor
         AIMessage(content='{"next": "eda_script_expert", "metadata": {"category": "EDA", "tool": "Innovus"}}'),
         # EDA Generator (returns a valid script)
@@ -80,17 +84,19 @@ def test_eda_end_to_end_smoke(mock_query_store, mock_chat_openai, conflict_sampl
     assert "floorPlan" in content
 
 @patch("src.utils.ChatOpenAI")
-@patch("src.experts.metrics_subgraph.execute_read_query")
+@patch("src.experts.metrics_subgraph.aexecute_read_query")
 @patch("src.experts.metrics_subgraph.validate_sql_query")
-@patch("src.experts.metrics_subgraph.retrieve_project_docs")
-def test_metrics_end_to_end_smoke(mock_retrieve, mock_validate, mock_execute, mock_chat_openai, conflict_samples):
+@patch("src.experts.metrics_subgraph.aretrieve_project_docs")
+@pytest.mark.anyio
+async def test_metrics_end_to_end_smoke(mock_retrieve, mock_validate, mock_execute, mock_chat_openai, conflict_samples):
     # Mock LLM:
     # 1. Supervisor
     # 2. Metrics Subgraph Route Classification (routed to sql)
     # 3. Metrics Subgraph SQL Generation
     # 4. Metrics Subgraph Summarization
-    mock_llm = MagicMock()
-    mock_llm.invoke.side_effect = [
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.side_effect = [
         # Supervisor
         AIMessage(content='{"next": "metrics_analyst", "metadata": {"category": "Project_Doc", "project_id": "Proj_A"}}'),
         # Route
@@ -120,11 +126,13 @@ def test_metrics_end_to_end_smoke(mock_retrieve, mock_validate, mock_execute, mo
     assert "0.02" in content
 
 @patch("src.utils.ChatOpenAI")
-@patch("src.retrieval.pdk_retriever.query_vector_store")
-def test_postgres_unavailability_downgrade(mock_query_store, mock_chat_openai, conflict_samples):
+@patch("src.vector_store.aquery_vector_store")
+@pytest.mark.anyio
+async def test_postgres_unavailability_downgrade(mock_query_store, mock_chat_openai, conflict_samples):
     # Mock LLM for supervisor and pdk expert (handling error case)
-    mock_llm = MagicMock()
-    mock_llm.invoke.side_effect = [
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.side_effect = [
         # Supervisor
         AIMessage(content='{"next": "pdk_expert", "metadata": {"category": "PDK", "node": "N5"}}'),
         # PDK Expert: receives empty context message

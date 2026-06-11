@@ -2,7 +2,7 @@ from src.state import AgentState
 from src.experts.metrics_subgraph import build_metrics_subgraph
 
 
-def metrics_analyst_node(state: AgentState) -> dict:
+async def metrics_analyst_node(state: AgentState) -> dict:
     """
     Metrics Analyst node that delegates execution to the metrics subgraph,
     which performs routing, SQL generation, document retrieval, and summarization.
@@ -32,11 +32,12 @@ def metrics_analyst_node(state: AgentState) -> dict:
         "tool_logs": [],
         "iterations": 0,
         "final_answer": "",
+        "temperature": state.get("temperature", 0.0),
     }
 
     # Run the compiled subgraph
     subgraph = build_metrics_subgraph()
-    sub_res = subgraph.invoke(sub_initial_state)
+    sub_res = await subgraph.ainvoke(sub_initial_state)
 
     # Extract new messages generated inside the subgraph
     original_message_count = len(state.get("messages", []))

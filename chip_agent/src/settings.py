@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
     )
 
     OPENAI_API_BASE_URL: str = "http://jmaicloud.jaguarmicro.com:8100/v1"
-    OPENAI_API_KEY: str = "gpustack_8a84577e7871ac6c_2c3d4ef8e376a5d2fca5ceb8e1cc4221"
+    OPENAI_API_KEY: str = Field(..., description="OpenAI API Key")
 
     LLM_MODEL: str = "nvidia-nemotron-3-super-120b-a12b-fp8"
     EMBEDDING_MODEL: str = "bge-m3"

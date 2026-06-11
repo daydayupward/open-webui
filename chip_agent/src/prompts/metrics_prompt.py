@@ -10,12 +10,31 @@ Rules:
 4. Never reference tables outside the schema.
 5. Use standard PostgreSQL syntax.
 6. If the question cannot be answered from the schema, output exactly: SELECT NULL WHERE FALSE;
+7. You MUST ALWAYS include a WHERE clause filtering by the project_id provided in the user prompt (e.g. WHERE project_id = 'the-project-id'). 
+
+### Few-Shot Examples
+Example 1:
+Question: "What is the worst negative slack and total negative slack?"
+Project ID: "X100"
+SQL Query:
+```sql
+SELECT wns, tns FROM project_metrics WHERE project_id = 'X100' ORDER BY metric_date DESC LIMIT 1;
+```
+
+Example 2:
+Question: "Show me the area and power trend over the last month."
+Project ID: "A15"
+SQL Query:
+```sql
+SELECT metric_date, area, power FROM project_metrics WHERE project_id = 'A15' AND metric_date >= CURRENT_DATE - INTERVAL '1 month' ORDER BY metric_date ASC;
+```
 
 Database Schema:
 {schema}
 """
 
 TEXT_TO_SQL_USER_TEMPLATE = """Question: {question}
+Project ID: {project_id}
 
 SQL Query:"""
 

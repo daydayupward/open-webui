@@ -232,21 +232,26 @@ def get_indexed_chunk_ids(
     Returns:
         List of chunk_id strings currently indexed.
     """
-    store = get_vector_store(connection_string, collection_name, embeddings)
+    from sqlalchemy import create_engine, text
 
     try:
-        # Use a dummy query to retrieve documents with metadata
-        # This is a pragmatic approach; for production, direct SQL may be preferred
-        filter_dict = {"doc_id": doc_id} if doc_id else None
-        # Retrieve a large number of documents to get all chunk_ids
-        results = store.similarity_search(
-            query="", k=10000, filter=filter_dict
-        )
-        chunk_ids = [
-            doc.metadata.get("chunk_id")
-            for doc in results
-            if doc.metadata.get("chunk_id")
-        ]
+        engine = create_engine(connection_string)
+        query = """
+            SELECT cmetadata->>'chunk_id'
+            FROM langchain_pg_embedding e
+            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+            WHERE c.name = :collection
+        """
+        params = {"collection": collection_name}
+        
+        if doc_id:
+            query += " AND cmetadata->>'doc_id' = :doc_id"
+            params["doc_id"] = doc_id
+            
+        with engine.connect() as conn:
+            result = conn.execute(text(query), params)
+            chunk_ids = [row[0] for row in result if row[0]]
+            
         logger.info("Found %d indexed chunk_ids.", len(chunk_ids))
         return chunk_ids
     except Exception as exc:

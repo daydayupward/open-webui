@@ -29,3 +29,26 @@ def execute_read_query(query: str, params: tuple = None, timeout: float = 5.0) -
                 columns = [desc[0] for desc in cur.description]
                 return [dict(zip(columns, row)) for row in cur.fetchall()]
             return []
+
+async def aexecute_read_query(query: str, params: tuple = None, timeout: float = 5.0) -> list[dict]:
+    """
+    Execute a read-only SQL query asynchronously using psycopg, applying a statement timeout.
+    Returns a list of dictionaries mapping column names to values.
+    """
+    db_url = clean_db_url(settings.DATABASE_URL)
+    
+    async with await psycopg.AsyncConnection.connect(db_url) as conn:
+        async with conn.cursor() as cur:
+            # Set statement timeout in milliseconds
+            timeout_ms = int(timeout * 1000)
+            await cur.execute(f"SET statement_timeout = {timeout_ms};")
+            
+            # Execute the actual query
+            await cur.execute(query, params)
+            
+            # Map results to dictionaries if description is available
+            if cur.description:
+                columns = [desc[0] for desc in cur.description]
+                rows = await cur.fetchall()
+                return [dict(zip(columns, row)) for row in rows]
+            return []

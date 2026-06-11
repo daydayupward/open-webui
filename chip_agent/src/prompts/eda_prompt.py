@@ -11,6 +11,21 @@ Guidelines:
 2. Ensure brackets, curly braces, and brackets ([]) are perfectly balanced.
 3. NEVER use restricted commands like 'exec', 'system', 'sh', 'bash', 'exit', 'rm', 'mv', 'socket'.
 4. Output only the script and clean, clear step-by-step explanations.
+
+### Few-Shot Examples
+Example 1:
+User Query: "Write a Tcl script to place ports on the top layer in Innovus."
+Context: "To place ports in Innovus, use: editPin -pin <pin_name> -layer <layer_name> -side <side>"
+Assistant:
+Here is the Innovus Tcl script to place the ports:
+```tcl
+# Loop through all top-level ports and place them on the M7 layer (Top side)
+set ports [dbGet top.terms.name]
+foreach port $ports {{
+    editPin -pin $port -layer M7 -side Top
+}}
+```
+This script retrieves all top-level ports and uses `editPin` to assign them to layer M7 on the top side of the block.
 """
 
 EDA_SCRIPT_REFINEMENT_PROMPT = """You are a specialized EDA Script Expert.

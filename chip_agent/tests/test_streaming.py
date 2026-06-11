@@ -4,6 +4,7 @@ from langchain_core.messages import AIMessageChunk
 from src.streaming import astream_chat_completion_events
 
 @pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_astream_chat_completion_events():
     mock_graph = MagicMock()
     

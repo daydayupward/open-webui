@@ -1,11 +1,12 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from src.retrieval.project_retriever import retrieve_project_docs
+from src.retrieval.project_retriever import aretrieve_project_docs
 
 
-@patch("src.retrieval.project_retriever.query_vector_store")
-@patch("src.retrieval.project_retriever.QwenRerankerClient")
-def test_retrieve_project_docs_success(mock_reranker_class, mock_query_store):
+@patch("src.vector_store.aquery_vector_store")
+@patch("src.retrieval.base.QwenRerankerClient")
+@pytest.mark.anyio
+async def test_retrieve_project_docs_success(mock_reranker_class, mock_query_store):
     """Test successful retrieval with project_id filtering."""
     mock_doc = MagicMock()
     mock_doc.page_content = "Project design specification"
@@ -16,12 +17,12 @@ def test_retrieve_project_docs_success(mock_reranker_class, mock_query_store):
     mock_reranker.rerank.side_effect = lambda q, chunks, top_k: chunks
     mock_reranker_class.return_value = mock_reranker
 
-    res = retrieve_project_docs("What is the design spec?", "proj-123")
+    res = await aretrieve_project_docs("What is the design spec?", "proj-123")
 
     assert res["logs"]["status"] == "success"
     assert len(res["chunks"]) == 1
     assert res["chunks"][0].page_content == "Project design specification"
-    assert res["logs"]["project_id"] == "proj-123"
+    assert res["logs"]["filter"]["project_id"] == "proj-123"
 
     mock_query_store.assert_called_once()
     called_filter = mock_query_store.call_args[1]["filter"]
@@ -29,9 +30,10 @@ def test_retrieve_project_docs_success(mock_reranker_class, mock_query_store):
     assert called_filter["project_id"] == "proj-123"
 
 
-@patch("src.retrieval.project_retriever.query_vector_store")
-@patch("src.retrieval.project_retriever.QwenRerankerClient")
-def test_retrieve_project_docs_with_metadata(mock_reranker_class, mock_query_store):
+@patch("src.vector_store.aquery_vector_store")
+@patch("src.retrieval.base.QwenRerankerClient")
+@pytest.mark.anyio
+async def test_retrieve_project_docs_with_metadata(mock_reranker_class, mock_query_store):
     """Test retrieval with additional metadata filtering."""
     mock_doc = MagicMock()
     mock_doc.page_content = "Meeting notes"
@@ -42,7 +44,7 @@ def test_retrieve_project_docs_with_metadata(mock_reranker_class, mock_query_sto
     mock_reranker.rerank.side_effect = lambda q, chunks, top_k: chunks
     mock_reranker_class.return_value = mock_reranker
 
-    res = retrieve_project_docs(
+    res = await aretrieve_project_docs(
         "What were the meeting decisions?",
         "proj-456",
         metadata={"doc_type": "meeting"}
@@ -57,9 +59,10 @@ def test_retrieve_project_docs_with_metadata(mock_reranker_class, mock_query_sto
     assert called_filter["doc_type"] == "meeting"
 
 
-@patch("src.retrieval.project_retriever.query_vector_store")
-@patch("src.retrieval.project_retriever.QwenRerankerClient")
-def test_retrieve_project_docs_multiple_results(mock_reranker_class, mock_query_store):
+@patch("src.vector_store.aquery_vector_store")
+@patch("src.retrieval.base.QwenRerankerClient")
+@pytest.mark.anyio
+async def test_retrieve_project_docs_multiple_results(mock_reranker_class, mock_query_store):
     """Test retrieval returns multiple results."""
     mock_docs = []
     for i in range(3):
@@ -73,40 +76,44 @@ def test_retrieve_project_docs_multiple_results(mock_reranker_class, mock_query_
     mock_reranker.rerank.side_effect = lambda q, chunks, top_k: chunks[:top_k]
     mock_reranker_class.return_value = mock_reranker
 
-    res = retrieve_project_docs("project overview", "proj-789", top_k=2)
+    res = await aretrieve_project_docs("project overview", "proj-789", top_k=2)
 
     assert res["logs"]["status"] == "success"
     assert res["logs"]["retrieved_count"] == 3
     assert res["logs"]["reranked_count"] == 2
 
 
-def test_retrieve_project_docs_missing_project_id():
+@pytest.mark.anyio
+async def test_retrieve_project_docs_missing_project_id():
     """Test that missing project_id raises ValueError."""
     with pytest.raises(ValueError, match="project_id is required"):
-        retrieve_project_docs("some query", "")
+        await aretrieve_project_docs("some query", "")
 
 
-def test_retrieve_project_docs_none_project_id():
+@pytest.mark.anyio
+async def test_retrieve_project_docs_none_project_id():
     """Test that None project_id raises ValueError."""
     with pytest.raises(ValueError, match="project_id is required"):
-        retrieve_project_docs("some query", None)
+        await aretrieve_project_docs("some query", None)
 
 
-@patch("src.retrieval.project_retriever.query_vector_store")
-def test_retrieve_project_docs_db_error(mock_query_store):
+@patch("src.vector_store.aquery_vector_store")
+@pytest.mark.anyio
+async def test_retrieve_project_docs_db_error(mock_query_store):
     """Test graceful handling of database errors."""
     mock_query_store.side_effect = RuntimeError("Connection refused")
 
-    res = retrieve_project_docs("What is the design spec?", "proj-123")
+    res = await aretrieve_project_docs("What is the design spec?", "proj-123")
 
     assert res["logs"]["status"] == "failed"
     assert "Connection refused" in res["logs"]["error"]
     assert len(res["chunks"]) == 0
 
 
-@patch("src.retrieval.project_retriever.query_vector_store")
-@patch("src.retrieval.project_retriever.QwenRerankerClient")
-def test_retrieve_project_docs_empty_results(mock_reranker_class, mock_query_store):
+@patch("src.vector_store.aquery_vector_store")
+@patch("src.retrieval.base.QwenRerankerClient")
+@pytest.mark.anyio
+async def test_retrieve_project_docs_empty_results(mock_reranker_class, mock_query_store):
     """Test retrieval with no matching documents."""
     mock_query_store.return_value = []
 
@@ -114,7 +121,7 @@ def test_retrieve_project_docs_empty_results(mock_reranker_class, mock_query_sto
     mock_reranker.rerank.return_value = []
     mock_reranker_class.return_value = mock_reranker
 
-    res = retrieve_project_docs("nonexistent query", "proj-123")
+    res = await aretrieve_project_docs("nonexistent query", "proj-123")
 
     assert res["logs"]["status"] == "success"
     assert res["logs"]["retrieved_count"] == 0
@@ -122,9 +129,10 @@ def test_retrieve_project_docs_empty_results(mock_reranker_class, mock_query_sto
     assert len(res["chunks"]) == 0
 
 
-@patch("src.retrieval.project_retriever.query_vector_store")
-@patch("src.retrieval.project_retriever.QwenRerankerClient")
-def test_retrieve_project_docs_logs_structure(mock_reranker_class, mock_query_store):
+@patch("src.vector_store.aquery_vector_store")
+@patch("src.retrieval.base.QwenRerankerClient")
+@pytest.mark.anyio
+async def test_retrieve_project_docs_logs_structure(mock_reranker_class, mock_query_store):
     """Test that logs contain all expected fields."""
     mock_query_store.return_value = []
 
@@ -132,12 +140,12 @@ def test_retrieve_project_docs_logs_structure(mock_reranker_class, mock_query_st
     mock_reranker.rerank.return_value = []
     mock_reranker_class.return_value = mock_reranker
 
-    res = retrieve_project_docs("test query", "proj-123", fetch_k=15, top_k=5)
+    res = await aretrieve_project_docs("test query", "proj-123", fetch_k=15, top_k=5)
 
     logs = res["logs"]
-    assert logs["step"] == "Project Retrieval"
+    assert logs["step"] == "PROJECT Retrieval"
     assert logs["query"] == "test query"
-    assert logs["project_id"] == "proj-123"
+    assert logs["filter"]["project_id"] == "proj-123"
     assert logs["fetch_k"] == 15
     assert logs["top_k"] == 5
     assert logs["status"] == "success"

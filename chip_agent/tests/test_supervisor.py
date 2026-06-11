@@ -1,9 +1,11 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import AsyncMock, patch, MagicMock
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 from src.metadata import QueryMetadata, normalize_metadata
-from src.supervisor import parse_json_safely, run_supervisor
+from src.supervisor import parse_json_safely, arun_supervisor
 
-def test_metadata_normalization():
+@pytest.mark.anyio
+async def test_metadata_normalization():
     # Test Node Normalization
     meta1 = QueryMetadata(category="pdk", node="n5", tool="innovus", project_id="proja")
     norm1 = normalize_metadata(meta1)
@@ -28,7 +30,8 @@ def test_metadata_normalization():
     assert norm3.tool == "Other_tool"
     assert norm3.project_id == "other_proj"
 
-def test_parse_json_safely():
+@pytest.mark.anyio
+async def test_parse_json_safely():
     # Standard JSON
     assert parse_json_safely('{"next": "pdk_expert"}') == {"next": "pdk_expert"}
     # Codeblock JSON
@@ -37,9 +40,10 @@ def test_parse_json_safely():
     assert parse_json_safely('Sure, here is the routing:\n{"next": "metrics_analyst"}') == {"next": "metrics_analyst"}
 
 @patch("src.supervisor.get_llm")
-def test_run_supervisor_success(mock_get_llm):
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(
+@pytest.mark.anyio
+async def test_run_supervisor_success(mock_get_llm):
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(
         content='''{
             "next": "pdk_expert",
             "metadata": {
@@ -54,7 +58,7 @@ def test_run_supervisor_success(mock_get_llm):
     )
     mock_get_llm.return_value = mock_llm
     
-    result = run_supervisor([HumanMessage(content="What is the metal pitch of N5 M3?")])
+    result = await arun_supervisor([HumanMessage(content="What is the metal pitch of N5 M3?")])
     assert result["route"] == "pdk_expert"
     assert result["metadata"]["category"] == "PDK"
     assert result["metadata"]["node"] == "N5"
@@ -62,13 +66,14 @@ def test_run_supervisor_success(mock_get_llm):
     assert result["metadata"]["confidence"] == 0.95
 
 @patch("src.supervisor.get_llm")
-def test_run_supervisor_fallback_on_invalid_json(mock_get_llm):
-    mock_llm = MagicMock()
+@pytest.mark.anyio
+async def test_run_supervisor_fallback_on_invalid_json(mock_get_llm):
+    mock_llm = AsyncMock()
     # Invalid JSON output
-    mock_llm.invoke.return_value = AIMessage(content="Sorry, I cannot route this query correctly.")
+    mock_llm.ainvoke.return_value = AIMessage(content="Sorry, I cannot route this query correctly.")
     mock_get_llm.return_value = mock_llm
     
-    result = run_supervisor([HumanMessage(content="Invalid input text.")])
+    result = await arun_supervisor([HumanMessage(content="Invalid input text.")])
     # Should fall back to default route and metadata
     assert result["route"] == "finalizer"
     assert result["metadata"]["category"] == "General"

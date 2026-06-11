@@ -1,8 +1,10 @@
+import pytest
 from src.message_utils import openai_to_langchain
 from src.api_models import ChatMessage
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
-def test_openai_to_langchain_pydantic():
+@pytest.mark.anyio
+async def test_openai_to_langchain_pydantic():
     messages = [
         ChatMessage(role="system", content="You are helpful."),
         ChatMessage(role="user", content="Hello"),
@@ -25,7 +27,8 @@ def test_openai_to_langchain_pydantic():
     assert isinstance(lc_messages[3], HumanMessage)
     assert lc_messages[3].content == "How are you?"
 
-def test_openai_to_langchain_dicts():
+@pytest.mark.anyio
+async def test_openai_to_langchain_dicts():
     messages = [
         {"role": "system", "content": "You are helpful."},
         {"role": "user", "content": "Hello"},

@@ -1,7 +1,7 @@
 from src.state import AgentState
 from src.experts.eda_script_subgraph import build_eda_subgraph
 
-def eda_script_expert_node(state: AgentState) -> dict:
+async def eda_script_expert_node(state: AgentState) -> dict:
     """
     EDA Script Expert node that delegates execution to the EDA script subgraph,
     which performs a retrieve-generate-lint-refine loop.
@@ -23,12 +23,13 @@ def eda_script_expert_node(state: AgentState) -> dict:
         "iterations": 0,
         "linter_result": {},
         "previous_response": "",
-        "final_answer": ""
+        "final_answer": "",
+        "temperature": state.get("temperature", 0.0)
     }
     
     # Run the compiled subgraph
     subgraph = build_eda_subgraph()
-    sub_res = subgraph.invoke(sub_initial_state)
+    sub_res = await subgraph.ainvoke(sub_initial_state)
     
     # Extract new messages generated inside the subgraph
     original_message_count = len(state.get("messages", []))

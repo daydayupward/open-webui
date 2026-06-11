@@ -4,6 +4,7 @@ import time
 from typing import AsyncGenerator
 from langchain_core.messages import AIMessageChunk
 from src.response_formatter import format_openai_chunk
+from src.constants import ExpertRoute
 
 async def astream_chat_completion_events(graph, initial_state, model_name: str) -> AsyncGenerator[str, None]:
     created_time = int(time.time())
@@ -12,12 +13,12 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
     try:
         async for event in graph.astream_events(initial_state, version="v2"):
             event_type = event.get("event")
+            name = event.get("name")
             
             if event_type == "on_chat_model_stream":
                 metadata = event.get("metadata", {})
-                node = metadata.get("langgraph_node", "")
-                
-                if node in ["pdk_expert", "eda_script_expert", "metrics_analyst"]:
+                name = event.get("name") or metadata.get("langgraph_node", "")
+                if name in [ExpertRoute.PDK, ExpertRoute.EDA, "refinement_agent", ExpertRoute.METRICS, "summarizer", "text_to_sql", "finalizer"]:
                     data = event.get("data", {})
                     chunk = data.get("chunk")
                     if chunk and hasattr(chunk, "content"):

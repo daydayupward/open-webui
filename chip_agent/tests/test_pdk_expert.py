@@ -1,14 +1,17 @@
+import pytest
 from unittest.mock import patch, MagicMock
 from src.experts.pdk_expert import pdk_expert_node
 from langchain_core.messages import HumanMessage, AIMessage
 from src.retrieval.types import RetrievalChunk
 
 @patch("src.experts.pdk_expert.get_llm")
-@patch("src.experts.pdk_expert.retrieve_pdk_rules")
-def test_pdk_expert_node(mock_retrieve, mock_get_llm):
+@patch("src.experts.pdk_expert.aretrieve_pdk_rules")
+@pytest.mark.anyio
+async def test_pdk_expert_node(mock_retrieve, mock_get_llm):
     # Mock LLM
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(content="[PDK Expert] The M3 pitch for N5 is 36nm.")
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(content="[PDK Expert] The M3 pitch for N5 is 36nm.")
     mock_get_llm.return_value = mock_llm
     
     # Mock Retriever
@@ -27,7 +30,7 @@ def test_pdk_expert_node(mock_retrieve, mock_get_llm):
         "retrieved_docs": [],
         "tool_logs": []
     }
-    result = pdk_expert_node(state)
+    result = await pdk_expert_node(state)
     
     assert len(result["messages"]) == 1
     assert isinstance(result["messages"][0], AIMessage)

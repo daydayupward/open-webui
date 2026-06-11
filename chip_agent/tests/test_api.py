@@ -1,4 +1,5 @@
-from unittest.mock import patch, MagicMock
+import pytest
+from unittest.mock import patch, MagicMock, AsyncMock
 from langchain_core.messages import AIMessage
 from fastapi.testclient import TestClient
 from src.main import app
@@ -6,11 +7,12 @@ from src.main import app
 client = TestClient(app)
 
 @patch("src.main.graph")
-def test_chat_completions(mock_graph):
-    mock_graph.invoke.return_value = {
+@pytest.mark.anyio
+async def test_chat_completions(mock_graph):
+    mock_graph.ainvoke = AsyncMock(return_value={
         "final_answer": "[PDK Expert] The metal pitch is 36nm.",
         "messages": [AIMessage(content="[PDK Expert] The metal pitch is 36nm.")]
-    }
+    })
     response = client.post(
         "/v1/chat/completions",
         json={"messages": [{"role": "user", "content": "What is N5 M3 pitch?"}]}
@@ -23,11 +25,12 @@ def test_chat_completions(mock_graph):
     assert data["object"] == "chat.completion"
 
 @patch("src.main.graph")
-def test_chat_completions_multi_turn(mock_graph):
-    mock_graph.invoke.return_value = {
+@pytest.mark.anyio
+async def test_chat_completions_multi_turn(mock_graph):
+    mock_graph.ainvoke = AsyncMock(return_value={
         "final_answer": "[EDA Script Expert] Innovus floorplan script created.",
         "messages": [AIMessage(content="[EDA Script Expert] Innovus floorplan script created.")]
-    }
+    })
     multi_turn_payload = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
@@ -46,7 +49,7 @@ def test_chat_completions_multi_turn(mock_graph):
     assert "choices" in data
     assert "Innovus" in data["choices"][0]["message"]["content"]
     
-    called_state = mock_graph.invoke.call_args[0][0]
+    called_state = mock_graph.ainvoke.call_args[0][0]
     assert len(called_state["messages"]) == 4
     assert called_state["messages"][0].content == "You are a helpful assistant."
     assert called_state["messages"][1].content == "Hello!"
@@ -54,7 +57,8 @@ def test_chat_completions_multi_turn(mock_graph):
     assert called_state["messages"][3].content == "Write an Innovus floorplan script."
 
 @patch("src.main.astream_chat_completion_events")
-def test_chat_completions_streaming(mock_stream_events):
+@pytest.mark.anyio
+async def test_chat_completions_streaming(mock_stream_events):
     async def mock_generator(*args, **kwargs):
         yield "data: {\"choices\": [{\"delta\": {\"content\": \"Hello\"}}]}\n\n"
         yield "data: [DONE]\n\n"
@@ -69,14 +73,16 @@ def test_chat_completions_streaming(mock_stream_events):
     assert "Hello" in response.text
     assert "[DONE]" in response.text
 
-def test_list_models():
+@pytest.mark.anyio
+async def test_list_models():
     response = client.get("/v1/models")
     assert response.status_code == 200
     data = response.json()
     assert "data" in data
     assert data["data"][0]["id"] == "chip-agentic-rag"
 
-def test_chat_completions_invalid_payload():
+@pytest.mark.anyio
+async def test_chat_completions_invalid_payload():
     # Missing 'messages' field
     response = client.post(
         "/v1/chat/completions",
@@ -86,7 +92,8 @@ def test_chat_completions_invalid_payload():
     data = response.json()
     assert "detail" in data
 
-def test_chat_completions_invalid_types():
+@pytest.mark.anyio
+async def test_chat_completions_invalid_types():
     # 'messages' is a string instead of array
     response = client.post(
         "/v1/chat/completions",

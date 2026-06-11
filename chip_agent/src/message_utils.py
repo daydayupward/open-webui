@@ -21,3 +21,10 @@ def openai_to_langchain(messages: List[Union[ChatMessage, Dict[str, Any]]]) -> L
         else:
             lc_messages.append(HumanMessage(content=content))
     return lc_messages
+
+def get_last_ai_content(messages: list) -> str:
+    for msg in reversed(messages):
+        msg_type = getattr(msg, "type", None)
+        if msg_type == "ai" or msg.__class__.__name__ == "AIMessage":
+            return msg.content
+    return ""

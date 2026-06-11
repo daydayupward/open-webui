@@ -23,23 +23,26 @@ from src.experts.metrics_subgraph import (
 # --- Unit tests for individual nodes ---
 
 
-def test_route_node_missing_project_id():
+@pytest.mark.anyio
+async def test_route_node_missing_project_id():
     """Route node should return 'clarify' when project_id is missing."""
     state = {
         "query": "What is the WNS for my project?",
         "project_id": "",
         "metadata": {},
     }
-    result = route_node(state)
+    result = await route_node(state)
     assert result["query_type"] == "clarify"
     assert result["tool_logs"][0]["routed_to"] == "clarify"
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_route_node_sql_query(mock_get_llm):
+@pytest.mark.anyio
+async def test_route_node_sql_query(mock_get_llm):
     """Route node should classify metric queries as 'sql'."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(content="sql")
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(content="sql")
     mock_get_llm.return_value = mock_llm
 
     state = {
@@ -47,16 +50,18 @@ def test_route_node_sql_query(mock_get_llm):
         "project_id": "P100",
         "metadata": {},
     }
-    result = route_node(state)
+    result = await route_node(state)
     assert result["query_type"] == "sql"
     assert result["tool_logs"][0]["routed_to"] == "sql"
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_route_node_docs_query(mock_get_llm):
+@pytest.mark.anyio
+async def test_route_node_docs_query(mock_get_llm):
     """Route node should classify documentation queries as 'docs'."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(content="docs")
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(content="docs")
     mock_get_llm.return_value = mock_llm
 
     state = {
@@ -64,15 +69,17 @@ def test_route_node_docs_query(mock_get_llm):
         "project_id": "P100",
         "metadata": {},
     }
-    result = route_node(state)
+    result = await route_node(state)
     assert result["query_type"] == "docs"
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_route_node_both_query(mock_get_llm):
+@pytest.mark.anyio
+async def test_route_node_both_query(mock_get_llm):
     """Route node should classify mixed queries as 'both'."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(content="both")
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(content="both")
     mock_get_llm.return_value = mock_llm
 
     state = {
@@ -80,15 +87,17 @@ def test_route_node_both_query(mock_get_llm):
         "project_id": "P100",
         "metadata": {},
     }
-    result = route_node(state)
+    result = await route_node(state)
     assert result["query_type"] == "both"
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_route_node_unrecognized_defaults_to_both(mock_get_llm):
+@pytest.mark.anyio
+async def test_route_node_unrecognized_defaults_to_both(mock_get_llm):
     """Route node should default to 'both' for unrecognized classifications."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(content="something_weird")
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(content="something_weird")
     mock_get_llm.return_value = mock_llm
 
     state = {
@@ -96,73 +105,87 @@ def test_route_node_unrecognized_defaults_to_both(mock_get_llm):
         "project_id": "P100",
         "metadata": {},
     }
-    result = route_node(state)
+    result = await route_node(state)
     assert result["query_type"] == "both"
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_generate_sql_node(mock_get_llm):
+@pytest.mark.anyio
+async def test_generate_sql_node(mock_get_llm):
     """Generate SQL node should produce SQL from natural language."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(
         content="SELECT wns, tns FROM project_metrics WHERE project_id = 'P100';"
     )
     mock_get_llm.return_value = mock_llm
 
     state = {
-        "query": "Show WNS and TNS for project P100",
+        "query": "Show WNS and TNS",
+        "project_id": "P100",
         "iterations": 0,
     }
-    result = generate_sql_node(state)
+    result = await generate_sql_node(state)
 
     assert "SELECT" in result["generated_sql"]
     assert result["iterations"] == 1
     assert result["tool_logs"][0]["step"] == "Generate SQL (Iteration 1)"
+    
+    # Verify that project_id was passed to the LLM template
+    call_args = mock_llm.ainvoke.call_args[0][0]
+    user_prompt = call_args[1].content
+    assert "P100" in user_prompt
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_generate_sql_node_strips_markdown(mock_get_llm):
+@pytest.mark.anyio
+async def test_generate_sql_node_strips_markdown(mock_get_llm):
     """Generate SQL node should strip markdown code fences."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(
         content="```sql\nSELECT wns FROM project_metrics;\n```"
     )
     mock_get_llm.return_value = mock_llm
 
     state = {"query": "Get WNS", "iterations": 0}
-    result = generate_sql_node(state)
+    result = await generate_sql_node(state)
 
     assert "```" not in result["generated_sql"]
     assert result["generated_sql"] == "SELECT wns FROM project_metrics;"
 
 
-def test_validate_sql_node_valid():
+@pytest.mark.anyio
+async def test_validate_sql_node_valid():
     """Validate SQL node should accept valid SELECT queries."""
     state = {
         "generated_sql": "SELECT wns, tns FROM project_metrics WHERE project_id = 'P100';"
     }
-    result = validate_sql_node(state)
+    result = await validate_sql_node(state)
     assert result["sql_valid"] is True
     assert result["sql_error"] == ""
 
 
-def test_validate_sql_node_invalid_insert():
+@pytest.mark.anyio
+async def test_validate_sql_node_invalid_insert():
     """Validate SQL node should reject INSERT statements."""
     state = {"generated_sql": "INSERT INTO project_metrics (wns) VALUES (1.0);"}
-    result = validate_sql_node(state)
+    result = await validate_sql_node(state)
     assert result["sql_valid"] is False
     assert "validation failed" in result["sql_error"].lower()
 
 
-def test_validate_sql_node_invalid_table():
+@pytest.mark.anyio
+async def test_validate_sql_node_invalid_table():
     """Validate SQL node should reject queries against non-allowlisted tables."""
     state = {"generated_sql": "SELECT * FROM users;"}
-    result = validate_sql_node(state)
+    result = await validate_sql_node(state)
     assert result["sql_valid"] is False
 
 
-@patch("src.experts.metrics_subgraph.execute_read_query")
-def test_execute_sql_node_success(mock_execute):
+@patch("src.experts.metrics_subgraph.aexecute_read_query")
+@pytest.mark.anyio
+async def test_execute_sql_node_success(mock_execute):
     """Execute SQL node should return results on success."""
     mock_execute.return_value = [
         {"wns": -0.15, "tns": -1.2},
@@ -173,7 +196,7 @@ def test_execute_sql_node_success(mock_execute):
         "generated_sql": "SELECT wns, tns FROM project_metrics WHERE project_id = 'P100';",
         "project_id": "P100",
     }
-    result = execute_sql_node(state)
+    result = await execute_sql_node(state)
 
     assert len(result["sql_results"]) == 2
     assert result["sql_results"][0]["wns"] == -0.15
@@ -181,8 +204,9 @@ def test_execute_sql_node_success(mock_execute):
     assert result["tool_logs"][0]["row_count"] == 2
 
 
-@patch("src.experts.metrics_subgraph.execute_read_query")
-def test_execute_sql_node_error(mock_execute):
+@patch("src.experts.metrics_subgraph.aexecute_read_query")
+@pytest.mark.anyio
+async def test_execute_sql_node_error(mock_execute):
     """Execute SQL node should handle database errors gracefully."""
     mock_execute.side_effect = Exception("Connection refused")
 
@@ -190,33 +214,19 @@ def test_execute_sql_node_error(mock_execute):
         "generated_sql": "SELECT wns FROM project_metrics;",
         "project_id": "P100",
     }
-    result = execute_sql_node(state)
+    result = await execute_sql_node(state)
 
     assert result["sql_results"] == []
     assert result["tool_logs"][0]["status"] == "error"
     assert "Connection refused" in result["tool_logs"][0]["error"]
 
 
-@patch("src.experts.metrics_subgraph.execute_read_query")
-def test_execute_sql_node_injects_project_id(mock_execute):
-    """Execute SQL node should inject project_id filter when missing using parameterized query."""
-    mock_execute.return_value = [{"wns": -0.15}]
-
-    state = {
-        "generated_sql": "SELECT wns FROM project_metrics;",
-        "project_id": "P100",
-    }
-    result = execute_sql_node(state)
-
-    executed_sql = result["tool_logs"][0]["executed_sql"]
-    assert "project_id" in executed_sql
-    assert "%s" in executed_sql
-    # Verify the parameter was passed correctly
-    mock_execute.assert_called_once_with(executed_sql, params=("P100",))
 
 
-@patch("src.experts.metrics_subgraph.retrieve_project_docs")
-def test_retrieve_docs_node(mock_retrieve):
+
+@patch("src.experts.metrics_subgraph.aretrieve_project_docs")
+@pytest.mark.anyio
+async def test_retrieve_docs_node(mock_retrieve):
     """Retrieve docs node should return document chunks."""
     mock_chunk = MagicMock()
     mock_chunk.page_content = "Timing closure methodology"
@@ -228,7 +238,7 @@ def test_retrieve_docs_node(mock_retrieve):
     }
 
     state = {"query": "timing closure methodology", "project_id": "P100"}
-    result = retrieve_docs_node(state)
+    result = await retrieve_docs_node(state)
 
     assert len(result["retrieved_docs"]) == 1
     assert result["retrieved_docs"][0]["content"] == "Timing closure methodology"
@@ -236,10 +246,12 @@ def test_retrieve_docs_node(mock_retrieve):
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_summarize_node_with_sql_results(mock_get_llm):
+@pytest.mark.anyio
+async def test_summarize_node_with_sql_results(mock_get_llm):
     """Summarize node should produce a summary from SQL results."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(
         content="The WNS for project P100 is -0.15ns and TNS is -1.2ns."
     )
     mock_get_llm.return_value = mock_llm
@@ -249,7 +261,7 @@ def test_summarize_node_with_sql_results(mock_get_llm):
         "sql_results": [{"wns": -0.15, "tns": -1.2}],
         "retrieved_docs": [],
     }
-    result = summarize_node(state)
+    result = await summarize_node(state)
 
     assert "final_answer" in result
     assert "-0.15" in result["final_answer"]
@@ -258,10 +270,12 @@ def test_summarize_node_with_sql_results(mock_get_llm):
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_summarize_node_with_doc_results(mock_get_llm):
+@pytest.mark.anyio
+async def test_summarize_node_with_doc_results(mock_get_llm):
     """Summarize node should produce a summary from document retrieval."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(
         content="The timing closure methodology used standard multi-corner optimization."
     )
     mock_get_llm.return_value = mock_llm
@@ -273,7 +287,7 @@ def test_summarize_node_with_doc_results(mock_get_llm):
             {"content": "Used multi-corner STA", "metadata": {}},
         ],
     }
-    result = summarize_node(state)
+    result = await summarize_node(state)
 
     assert "methodology" in result["final_answer"].lower()
     assert result["tool_logs"][0]["has_sql_results"] is False
@@ -281,10 +295,12 @@ def test_summarize_node_with_doc_results(mock_get_llm):
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_summarize_node_no_data(mock_get_llm):
+@pytest.mark.anyio
+async def test_summarize_node_no_data(mock_get_llm):
     """Summarize node should handle empty results."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value = AIMessage(content="No data found.")
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(content="No data found.")
     mock_get_llm.return_value = mock_llm
 
     state = {
@@ -292,12 +308,13 @@ def test_summarize_node_no_data(mock_get_llm):
         "sql_results": [],
         "retrieved_docs": [],
     }
-    result = summarize_node(state)
+    result = await summarize_node(state)
 
     assert result["final_answer"] == "No data found."
 
 
-def test_clarify_node():
+@pytest.mark.anyio
+async def test_clarify_node():
     """Clarify node should return a message asking for project_id."""
     state = {}
     result = clarify_node(state)
@@ -309,56 +326,67 @@ def test_clarify_node():
 # --- Conditional routing function tests ---
 
 
-def test_route_after_classify_sql():
+@pytest.mark.anyio
+async def test_route_after_classify_sql():
     assert route_after_classify({"query_type": "sql"}) == "generate_sql"
 
 
-def test_route_after_classify_docs():
+@pytest.mark.anyio
+async def test_route_after_classify_docs():
     assert route_after_classify({"query_type": "docs"}) == "retrieve_docs"
 
 
-def test_route_after_classify_both():
+@pytest.mark.anyio
+async def test_route_after_classify_both():
     assert route_after_classify({"query_type": "both"}) == "generate_sql"
 
 
-def test_route_after_classify_clarify():
+@pytest.mark.anyio
+async def test_route_after_classify_clarify():
     assert route_after_classify({"query_type": "clarify"}) == "clarify"
 
 
-def test_route_after_validate_valid():
+@pytest.mark.anyio
+async def test_route_after_validate_valid():
     assert route_after_validate({"sql_valid": True, "iterations": 1}) == "execute_sql"
 
 
-def test_route_after_validate_invalid_retry():
+@pytest.mark.anyio
+async def test_route_after_validate_invalid_retry():
     assert route_after_validate({"sql_valid": False, "iterations": 1}) == "generate_sql"
 
 
-def test_route_after_validate_invalid_exhausted():
+@pytest.mark.anyio
+async def test_route_after_validate_invalid_exhausted():
     assert route_after_validate({"sql_valid": False, "iterations": 2}) == "retrieve_docs"
 
 
-def test_route_after_sql_both():
+@pytest.mark.anyio
+async def test_route_after_sql_both():
     assert route_after_sql({"query_type": "both"}) == "retrieve_docs"
 
 
-def test_route_after_sql_sql_only():
+@pytest.mark.anyio
+async def test_route_after_sql_sql_only():
     assert route_after_sql({"query_type": "sql"}) == "summarize"
 
 
 # --- Integration tests with the compiled subgraph ---
 
 
-@patch("src.experts.metrics_subgraph.retrieve_project_docs")
-@patch("src.experts.metrics_subgraph.execute_read_query")
+@patch("src.experts.metrics_subgraph.aretrieve_project_docs")
+@patch("src.experts.metrics_subgraph.aexecute_read_query")
 @patch("src.experts.metrics_subgraph.validate_sql_query")
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_full_sql_flow(
+@pytest.mark.anyio
+async def test_full_sql_flow(
     mock_get_llm, mock_validate, mock_execute, mock_retrieve
 ):
     """Test full SQL-only flow: route -> generate_sql -> validate -> execute -> summarize."""
     # Setup mocks
-    mock_llm = MagicMock()
-    mock_llm.invoke.side_effect = [
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.side_effect = [
         AIMessage(content="sql"),  # route classification
         AIMessage(content="SELECT wns, tns FROM project_metrics WHERE project_id = 'P100';"),  # SQL generation
         AIMessage(content="WNS is -0.15ns, TNS is -1.2ns."),  # summarize
@@ -385,7 +413,7 @@ def test_full_sql_flow(
         "final_answer": "",
     }
 
-    result = subgraph.invoke(initial_state)
+    result = await subgraph.ainvoke(initial_state)
 
     assert result["query_type"] == "sql"
     assert result["sql_valid"] is True
@@ -394,9 +422,10 @@ def test_full_sql_flow(
     mock_execute.assert_called_once()
 
 
-@patch("src.experts.metrics_subgraph.retrieve_project_docs")
+@patch("src.experts.metrics_subgraph.aretrieve_project_docs")
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_full_docs_flow(mock_get_llm, mock_retrieve):
+@pytest.mark.anyio
+async def test_full_docs_flow(mock_get_llm, mock_retrieve):
     """Test full docs-only flow: route -> retrieve_docs -> summarize."""
     mock_chunk = MagicMock()
     mock_chunk.page_content = "Multi-corner timing optimization methodology"
@@ -407,8 +436,9 @@ def test_full_docs_flow(mock_get_llm, mock_retrieve):
         "logs": {"step": "Project Retrieval", "status": "success"},
     }
 
-    mock_llm = MagicMock()
-    mock_llm.invoke.side_effect = [
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.side_effect = [
         AIMessage(content="docs"),  # route classification
         AIMessage(content="The methodology uses multi-corner timing optimization."),  # summarize
     ]
@@ -432,7 +462,7 @@ def test_full_docs_flow(mock_get_llm, mock_retrieve):
         "final_answer": "",
     }
 
-    result = subgraph.invoke(initial_state)
+    result = await subgraph.ainvoke(initial_state)
 
     assert result["query_type"] == "docs"
     assert len(result["retrieved_docs"]) == 1
@@ -440,11 +470,12 @@ def test_full_docs_flow(mock_get_llm, mock_retrieve):
     mock_retrieve.assert_called_once()
 
 
-@patch("src.experts.metrics_subgraph.retrieve_project_docs")
-@patch("src.experts.metrics_subgraph.execute_read_query")
+@patch("src.experts.metrics_subgraph.aretrieve_project_docs")
+@patch("src.experts.metrics_subgraph.aexecute_read_query")
 @patch("src.experts.metrics_subgraph.validate_sql_query")
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_full_both_flow(
+@pytest.mark.anyio
+async def test_full_both_flow(
     mock_get_llm, mock_validate, mock_execute, mock_retrieve
 ):
     """Test full 'both' flow: route -> generate_sql -> validate -> execute -> retrieve_docs -> summarize."""
@@ -457,8 +488,9 @@ def test_full_both_flow(
         "logs": {"step": "Project Retrieval", "status": "success"},
     }
 
-    mock_llm = MagicMock()
-    mock_llm.invoke.side_effect = [
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.side_effect = [
         AIMessage(content="both"),  # route classification
         AIMessage(content="SELECT wns FROM project_metrics WHERE project_id = 'P100';"),  # SQL generation
         AIMessage(content="WNS is -0.15ns and the timing closure used multi-corner approach."),  # summarize
@@ -485,7 +517,7 @@ def test_full_both_flow(
         "final_answer": "",
     }
 
-    result = subgraph.invoke(initial_state)
+    result = await subgraph.ainvoke(initial_state)
 
     assert result["query_type"] == "both"
     assert result["sql_valid"] is True
@@ -496,9 +528,11 @@ def test_full_both_flow(
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_missing_project_id_flow(mock_get_llm):
+@pytest.mark.anyio
+async def test_missing_project_id_flow(mock_get_llm):
     """Test that missing project_id routes to clarify."""
-    mock_llm = MagicMock()
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
     mock_get_llm.return_value = mock_llm
 
     subgraph = build_metrics_subgraph()
@@ -519,7 +553,7 @@ def test_missing_project_id_flow(mock_get_llm):
         "final_answer": "",
     }
 
-    result = subgraph.invoke(initial_state)
+    result = await subgraph.ainvoke(initial_state)
 
     assert result["query_type"] == "clarify"
     assert "project id" in result["final_answer"].lower()
@@ -527,13 +561,15 @@ def test_missing_project_id_flow(mock_get_llm):
     mock_llm.invoke.assert_not_called()
 
 
-@patch("src.experts.metrics_subgraph.execute_read_query")
+@patch("src.experts.metrics_subgraph.aexecute_read_query")
 @patch("src.experts.metrics_subgraph.validate_sql_query")
 @patch("src.experts.metrics_subgraph.get_llm")
-def test_sql_validation_retry_then_fallback(mock_get_llm, mock_validate, mock_execute):
+@pytest.mark.anyio
+async def test_sql_validation_retry_then_fallback(mock_get_llm, mock_validate, mock_execute):
     """Test that SQL validation failures trigger retries, then fallback to docs."""
-    mock_llm = MagicMock()
-    mock_llm.invoke.side_effect = [
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.side_effect = [
         AIMessage(content="sql"),  # route classification
         AIMessage(content="BAD SQL 1"),  # first SQL generation
         AIMessage(content="BAD SQL 2"),  # second SQL generation (retry)
@@ -543,7 +579,7 @@ def test_sql_validation_retry_then_fallback(mock_get_llm, mock_validate, mock_ex
     mock_validate.return_value = False  # Always fail validation
 
     # Mock retrieve_project_docs since fallback goes to docs
-    with patch("src.experts.metrics_subgraph.retrieve_project_docs") as mock_retrieve:
+    with patch("src.experts.metrics_subgraph.aretrieve_project_docs") as mock_retrieve:
         mock_retrieve.return_value = {
             "chunks": [],
             "logs": {"step": "Project Retrieval", "status": "success"},
@@ -567,7 +603,7 @@ def test_sql_validation_retry_then_fallback(mock_get_llm, mock_validate, mock_ex
             "final_answer": "",
         }
 
-        result = subgraph.invoke(initial_state)
+        result = await subgraph.ainvoke(initial_state)
 
     # Should have retried SQL twice (iterations=2), then fallen back to docs
     assert result["iterations"] == 2

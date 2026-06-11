@@ -11,3 +11,4 @@ class AgentState(TypedDict):
     final_answer: str
     errors: Annotated[List[str], operator.add]
     request_id: str
+    temperature: float

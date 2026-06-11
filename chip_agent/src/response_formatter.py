@@ -1,15 +1,13 @@
 import time
 import uuid
-from src.api_models import ChatCompletionResponse, ChatCompletionResponseChoice, ChatMessage
+from src.api_models import ChatCompletionResponse, ChatCompletionResponseChoice, ChatMessage, Usage
+
+from src.message_utils import get_last_ai_content
 
 def format_openai_response(state: dict, model_name: str) -> ChatCompletionResponse:
     final_answer = state.get("final_answer", "")
     if not final_answer:
-        for msg in reversed(state.get("messages", [])):
-            msg_type = getattr(msg, "type", None)
-            if msg_type == "ai" or msg.__class__.__name__ == "AIMessage":
-                final_answer = msg.content
-                break
+        final_answer = get_last_ai_content(state.get("messages", []))
                 
     response_id = state.get("request_id", "")
     if not response_id:
@@ -23,12 +21,27 @@ def format_openai_response(state: dict, model_name: str) -> ChatCompletionRespon
         finish_reason="stop"
     )
     
+    prompt_tokens = 0
+    completion_tokens = 0
+    for msg in state.get("messages", []):
+        if hasattr(msg, "response_metadata") and "token_usage" in msg.response_metadata:
+            token_usage = msg.response_metadata["token_usage"]
+            prompt_tokens += token_usage.get("prompt_tokens", 0)
+            completion_tokens += token_usage.get("completion_tokens", 0)
+            
+    total_tokens = prompt_tokens + completion_tokens
+
     return ChatCompletionResponse(
         id=response_id,
         object="chat.completion",
         created=int(time.time()),
         model=model_name,
-        choices=[choice]
+        choices=[choice],
+        usage=Usage(
+            prompt_tokens=prompt_tokens, 
+            completion_tokens=completion_tokens, 
+            total_tokens=total_tokens
+        )
     )
 
 def format_openai_chunk(

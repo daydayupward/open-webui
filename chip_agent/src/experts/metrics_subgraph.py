@@ -14,9 +14,9 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage
 
 from src.utils import get_llm
-from src.sql.sql_client import execute_read_query
+from src.sql.sql_client import aexecute_read_query
 from src.sql.sql_guardrails import validate_sql_query
-from src.retrieval.project_retriever import retrieve_project_docs
+from src.retrieval.project_retriever import aretrieve_project_docs
 from src.prompts.metrics_prompt import (
     TEXT_TO_SQL_SYSTEM_PROMPT,
     TEXT_TO_SQL_USER_TEMPLATE,
@@ -52,9 +52,10 @@ class MetricsSubgraphState(TypedDict):
     tool_logs: Annotated[List[Dict[str, Any]], operator.add]
     iterations: int
     final_answer: str
+    temperature: float
 
 
-def route_node(state: MetricsSubgraphState) -> dict:
+async def route_node(state: MetricsSubgraphState) -> dict:
     """Determine if the query needs SQL, doc retrieval, or both."""
     query = state.get("query", "")
     project_id = state.get("project_id", "")
@@ -72,7 +73,7 @@ def route_node(state: MetricsSubgraphState) -> dict:
         }
 
     # Use LLM to classify the query type
-    llm = get_llm()
+    llm = get_llm(state.get("temperature", 0.0))
     classification_prompt = SystemMessage(
         content=(
             "You are a query classifier for a chip design metrics system. "
@@ -85,7 +86,7 @@ def route_node(state: MetricsSubgraphState) -> dict:
             "Respond with ONLY one word: sql, docs, or both."
         )
     )
-    response = llm.invoke([classification_prompt, HumanMessage(content=query)])
+    response = await llm.ainvoke([classification_prompt, HumanMessage(content=query)])
     raw_type = response.content.strip().lower()
 
     # Normalize to valid types
@@ -100,19 +101,22 @@ def route_node(state: MetricsSubgraphState) -> dict:
     }
 
 
-def generate_sql_node(state: MetricsSubgraphState) -> dict:
+async def generate_sql_node(state: MetricsSubgraphState) -> dict:
     """Use LLM to generate SQL from natural language."""
     query = state.get("query", "")
-    llm = get_llm()
+    llm = get_llm(state.get("temperature", 0.0))
 
     system_prompt = SystemMessage(
         content=TEXT_TO_SQL_SYSTEM_PROMPT.format(schema=DB_SCHEMA)
     )
     user_prompt = HumanMessage(
-        content=TEXT_TO_SQL_USER_TEMPLATE.format(question=query)
+        content=TEXT_TO_SQL_USER_TEMPLATE.format(
+            question=query, 
+            project_id=state.get("project_id", "")
+        )
     )
 
-    response = llm.invoke([system_prompt, user_prompt])
+    response = await llm.ainvoke([system_prompt, user_prompt])
     generated_sql = response.content.strip()
 
     # Clean up markdown fences if present
@@ -136,7 +140,7 @@ def generate_sql_node(state: MetricsSubgraphState) -> dict:
     }
 
 
-def validate_sql_node(state: MetricsSubgraphState) -> dict:
+async def validate_sql_node(state: MetricsSubgraphState) -> dict:
     """Use sql_guardrails to validate generated SQL."""
     generated_sql = state.get("generated_sql", "")
     is_valid = validate_sql_query(generated_sql)
@@ -159,53 +163,20 @@ def validate_sql_node(state: MetricsSubgraphState) -> dict:
     }
 
 
-def execute_sql_node(state: MetricsSubgraphState) -> dict:
+async def execute_sql_node(state: MetricsSubgraphState) -> dict:
     """Execute validated SQL using sql_client."""
     generated_sql = state.get("generated_sql", "")
     project_id = state.get("project_id", "")
 
     try:
-        # Inject project_id filter if not already present (using parameterized query)
-        sql_to_execute = generated_sql
-        params = None
-        if project_id and "project_id" not in generated_sql.lower():
-            # Add WHERE clause or append to existing WHERE
-            if "where" in generated_sql.lower():
-                sql_to_execute = generated_sql + " AND project_id = %s"
-            elif "order by" in generated_sql.lower():
-                # Insert WHERE before ORDER BY
-                idx = generated_sql.lower().index("order by")
-                sql_to_execute = (
-                    generated_sql[:idx]
-                    + "WHERE project_id = %s "
-                    + generated_sql[idx:]
-                )
-            elif "group by" in generated_sql.lower():
-                idx = generated_sql.lower().index("group by")
-                sql_to_execute = (
-                    generated_sql[:idx]
-                    + "WHERE project_id = %s "
-                    + generated_sql[idx:]
-                )
-            elif "limit" in generated_sql.lower():
-                idx = generated_sql.lower().index("limit")
-                sql_to_execute = (
-                    generated_sql[:idx]
-                    + "WHERE project_id = %s "
-                    + generated_sql[idx:]
-                )
-            else:
-                sql_to_execute = generated_sql.rstrip(";") + " WHERE project_id = %s;"
-            params = (project_id,)
-
-        results = execute_read_query(sql_to_execute, params=params)
+        results = await aexecute_read_query(generated_sql)
 
         return {
             "sql_results": results,
             "tool_logs": [
                 {
                     "step": "Execute SQL",
-                    "executed_sql": sql_to_execute,
+                    "executed_sql": generated_sql,
                     "row_count": len(results),
                     "status": "success",
                 }
@@ -225,12 +196,12 @@ def execute_sql_node(state: MetricsSubgraphState) -> dict:
         }
 
 
-def retrieve_docs_node(state: MetricsSubgraphState) -> dict:
+async def retrieve_docs_node(state: MetricsSubgraphState) -> dict:
     """Retrieve project documents using project_retriever."""
     query = state.get("query", "")
     project_id = state.get("project_id", "")
 
-    retrieval_res = retrieve_project_docs(query, project_id)
+    retrieval_res = await aretrieve_project_docs(query, project_id)
 
     chunks_data = [
         {"content": chunk.page_content, "metadata": chunk.metadata}
@@ -243,13 +214,13 @@ def retrieve_docs_node(state: MetricsSubgraphState) -> dict:
     }
 
 
-def summarize_node(state: MetricsSubgraphState) -> dict:
+async def summarize_node(state: MetricsSubgraphState) -> dict:
     """Use LLM to summarize results from SQL and/or document retrieval."""
     query = state.get("query", "")
     sql_results = state.get("sql_results", [])
     retrieved_docs = state.get("retrieved_docs", [])
 
-    llm = get_llm()
+    llm = get_llm(state.get("temperature", 0.0))
 
     # Build context parts
     context_parts = []
@@ -279,7 +250,7 @@ def summarize_node(state: MetricsSubgraphState) -> dict:
         )
     )
 
-    response = llm.invoke([system_prompt, user_prompt])
+    response = await llm.ainvoke([system_prompt, user_prompt])
 
     return {
         "final_answer": response.content,

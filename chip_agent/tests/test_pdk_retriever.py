@@ -1,9 +1,11 @@
+import pytest
 from unittest.mock import patch, MagicMock
-from src.retrieval.pdk_retriever import retrieve_pdk_rules
+from src.retrieval.pdk_retriever import aretrieve_pdk_rules
 
-@patch("src.retrieval.pdk_retriever.query_vector_store")
-@patch("src.retrieval.pdk_retriever.QwenRerankerClient")
-def test_retrieve_pdk_rules_success(mock_reranker_class, mock_query_store):
+@patch("src.vector_store.aquery_vector_store")
+@patch("src.retrieval.base.QwenRerankerClient")
+@pytest.mark.anyio
+async def test_retrieve_pdk_rules_success(mock_reranker_class, mock_query_store):
     mock_doc = MagicMock()
     mock_doc.page_content = "Metal pitch rule"
     mock_doc.metadata = {"category": "PDK", "node": "N5"}
@@ -13,7 +15,7 @@ def test_retrieve_pdk_rules_success(mock_reranker_class, mock_query_store):
     mock_reranker.rerank.side_effect = lambda q, chunks, top_k: chunks
     mock_reranker_class.return_value = mock_reranker
     
-    res = retrieve_pdk_rules("What is M3 pitch?", {"node": "n5"})
+    res = await aretrieve_pdk_rules("What is M3 pitch?", {"node": "n5"})
     
     assert res["logs"]["status"] == "success"
     assert len(res["chunks"]) == 1
@@ -24,11 +26,12 @@ def test_retrieve_pdk_rules_success(mock_reranker_class, mock_query_store):
     assert called_filter["category"] == "PDK"
     assert called_filter["node"] == "n5"
 
-@patch("src.retrieval.pdk_retriever.query_vector_store")
-def test_retrieve_pdk_rules_fallback_on_db_error(mock_query_store):
+@patch("src.vector_store.aquery_vector_store")
+@pytest.mark.anyio
+async def test_retrieve_pdk_rules_fallback_on_db_error(mock_query_store):
     mock_query_store.side_effect = RuntimeError("Connection refused")
     
-    res = retrieve_pdk_rules("What is M3 pitch?", {"node": "N5"})
+    res = await aretrieve_pdk_rules("What is M3 pitch?", {"node": "N5"})
     
     assert res["logs"]["status"] == "failed"
     assert "Connection refused" in res["logs"]["error"]

@@ -1,14 +1,16 @@
 from unittest.mock import patch, MagicMock
+import pytest
 from src.graph import build_graph
 from langchain_core.messages import HumanMessage, AIMessage
 
-@patch("src.graph.run_supervisor")
+@patch("src.graph.arun_supervisor")
 @patch("src.graph.pdk_expert_node")
 @patch("src.graph.eda_script_expert_node")
 @patch("src.graph.metrics_analyst_node")
-def test_graph_routing(mock_metrics, mock_eda, mock_pdk, mock_run_supervisor):
+@pytest.mark.anyio
+async def test_graph_routing(mock_metrics, mock_eda, mock_pdk, mock_arun_supervisor):
     # Mock supervisor return values
-    mock_run_supervisor.return_value = {
+    mock_arun_supervisor.return_value = {
         "route": "pdk_expert",
         "metadata": {
             "category": "PDK",
@@ -34,7 +36,7 @@ def test_graph_routing(mock_metrics, mock_eda, mock_pdk, mock_run_supervisor):
         "final_answer": "",
         "errors": []
     }
-    result = graph.invoke(initial_state)
+    result = await graph.ainvoke(initial_state)
     
     assert "messages" in result
     assert result["route"] == "pdk_expert"
@@ -42,14 +44,16 @@ def test_graph_routing(mock_metrics, mock_eda, mock_pdk, mock_run_supervisor):
     assert result["metadata"]["node"] == "N5"
     assert result["final_answer"] == "[PDK Expert] The metal pitch is 36nm."
     mock_pdk.assert_called_once()
-    mock_run_supervisor.assert_called_once()
+    mock_arun_supervisor.assert_called_once()
 
 @patch("src.utils.ChatOpenAI")
-@patch("src.retrieval.pdk_retriever.query_vector_store")
-def test_full_chain_pdk_execution(mock_query_store, mock_chat_openai):
+@patch("src.vector_store.aquery_vector_store")
+@pytest.mark.anyio
+async def test_full_chain_pdk_execution(mock_query_store, mock_chat_openai):
     # Mock LLM for supervisor and pdk_expert
-    mock_llm = MagicMock()
-    mock_llm.invoke.side_effect = [
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.side_effect = [
         # Supervisor
         AIMessage(content='{"next": "pdk_expert", "metadata": {"category": "PDK", "node": "N5"}}'),
         # PDK Expert
@@ -74,7 +78,7 @@ def test_full_chain_pdk_execution(mock_query_store, mock_chat_openai):
         "final_answer": "",
         "errors": []
     }
-    result = graph.invoke(initial_state)
+    result = await graph.ainvoke(initial_state)
 
     # Verify state progression
     assert result["route"] == "pdk_expert"
