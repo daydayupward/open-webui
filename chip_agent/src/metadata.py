@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 class QueryMetadata(BaseModel):
-    category: Optional[str] = Field(None, description="The category of the query: 'PDK', 'EDA', 'Project_Doc', or 'General'.")
+    categories: List[str] = Field(default_factory=list, description="List of categories for the query. Valid values: 'Project', 'EDA', 'PDK', 'IP', 'Training', 'Literature', 'Script', 'General'.")
     node: Optional[str] = Field(None, description="Process node (e.g. 'N5', 'N7', etc.)")
     tool: Optional[str] = Field(None, description="EDA tool name (e.g. 'Innovus', 'ICC2', 'Calibre', etc.)")
     project_id: Optional[str] = Field(None, description="Project ID (e.g. 'Proj_A', 'Proj_B', etc.)")
@@ -10,16 +10,30 @@ class QueryMetadata(BaseModel):
     missing_fields: List[str] = Field(default_factory=list, description="Fields required but missing from query.")
 
 def normalize_metadata(meta: QueryMetadata) -> QueryMetadata:
-    if meta.category:
-        cat = meta.category.strip().lower()
-        if cat in ["pdk", "process"]:
-            meta.category = "PDK"
-        elif cat in ["eda", "tool"]:
-            meta.category = "EDA"
-        elif cat in ["project_doc", "project", "doc"]:
-            meta.category = "Project_Doc"
-        elif cat == "general":
-            meta.category = "General"
+    if meta.categories:
+        normalized_cats = []
+        for cat in meta.categories:
+            cat_clean = cat.strip().lower()
+            if cat_clean in ["pdk", "process", "rule"]:
+                normalized_cats.append("PDK")
+            elif cat_clean in ["eda", "tool", "command"]:
+                normalized_cats.append("EDA")
+            elif cat_clean in ["project_doc", "project", "doc", "prd", "spec"]:
+                normalized_cats.append("Project")
+            elif cat_clean in ["ip", "ip_doc"]:
+                normalized_cats.append("IP")
+            elif cat_clean in ["training", "team"]:
+                normalized_cats.append("Training")
+            elif cat_clean in ["literature", "book", "paper"]:
+                normalized_cats.append("Literature")
+            elif cat_clean in ["script", "tcl", "python"]:
+                normalized_cats.append("Script")
+            elif cat_clean == "general":
+                normalized_cats.append("General")
+            else:
+                normalized_cats.append(cat.strip().capitalize())
+        # remove duplicates
+        meta.categories = list(dict.fromkeys(normalized_cats))
             
     if meta.node:
         node_str = meta.node.strip().upper()

@@ -60,20 +60,8 @@ async def route_node(state: MetricsSubgraphState) -> dict:
     query = state.get("query", "")
     project_id = state.get("project_id", "")
 
-    log_entry: Dict[str, Any] = {
-        "step": "Route",
-        "query": query,
-        "project_id": project_id,
-    }
-
-    if not project_id:
-        return {
-            "query_type": "clarify",
-            "tool_logs": [{**log_entry, "routed_to": "clarify", "reason": "Missing project_id"}],
-        }
-
     # Use LLM to classify the query type
-    llm = get_llm(state.get("temperature", 0.0))
+    llm = get_llm(state.get("temperature") or 0.0)
     classification_prompt = SystemMessage(
         content=(
             "You are a query classifier for a chip design metrics system. "
@@ -95,6 +83,19 @@ async def route_node(state: MetricsSubgraphState) -> dict:
     else:
         query_type = "both"  # Default to both if classification is unclear
 
+    log_entry: Dict[str, Any] = {
+        "step": "Route",
+        "query": query,
+        "project_id": project_id,
+    }
+
+    # Only require project_id if the path involves SQL metrics querying
+    if not project_id and query_type != "docs":
+        return {
+            "query_type": "clarify",
+            "tool_logs": [{**log_entry, "routed_to": "clarify", "reason": "Missing project_id for SQL metrics"}],
+        }
+
     return {
         "query_type": query_type,
         "tool_logs": [{**log_entry, "routed_to": query_type}],
@@ -104,7 +105,7 @@ async def route_node(state: MetricsSubgraphState) -> dict:
 async def generate_sql_node(state: MetricsSubgraphState) -> dict:
     """Use LLM to generate SQL from natural language."""
     query = state.get("query", "")
-    llm = get_llm(state.get("temperature", 0.0))
+    llm = get_llm(state.get("temperature") or 0.0)
 
     system_prompt = SystemMessage(
         content=TEXT_TO_SQL_SYSTEM_PROMPT.format(schema=DB_SCHEMA)
@@ -201,7 +202,7 @@ async def retrieve_docs_node(state: MetricsSubgraphState) -> dict:
     query = state.get("query", "")
     project_id = state.get("project_id", "")
 
-    retrieval_res = await aretrieve_project_docs(query, project_id)
+    retrieval_res = await aretrieve_project_docs(query, project_id, metadata=state.get("metadata", {}))
 
     chunks_data = [
         {"content": chunk.page_content, "metadata": chunk.metadata}
@@ -220,7 +221,7 @@ async def summarize_node(state: MetricsSubgraphState) -> dict:
     sql_results = state.get("sql_results", [])
     retrieved_docs = state.get("retrieved_docs", [])
 
-    llm = get_llm(state.get("temperature", 0.0))
+    llm = get_llm(state.get("temperature") or 0.0)
 
     # Build context parts
     context_parts = []
@@ -267,11 +268,14 @@ async def summarize_node(state: MetricsSubgraphState) -> dict:
 
 def clarify_node(state: MetricsSubgraphState) -> dict:
     """Handle the case where project_id is missing."""
+    clarify_text = (
+        "I need a project ID to look up metrics or project documents. "
+        "Please provide the project ID you'd like me to query."
+    )
+    from langchain_core.messages import AIMessage
     return {
-        "final_answer": (
-            "I need a project ID to look up metrics or project documents. "
-            "Please provide the project ID you'd like me to query."
-        ),
+        "final_answer": clarify_text,
+        "messages": [AIMessage(content=clarify_text)],
         "tool_logs": [
             {
                 "step": "Clarify",

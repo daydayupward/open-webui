@@ -45,7 +45,7 @@ async def retrieve_node(state: EDASubgraphState) -> dict:
     }
 
 async def generate_node(state: EDASubgraphState) -> dict:
-    llm = get_llm(state.get("temperature", 0.0))
+    llm = get_llm(state.get("temperature") or 0.0)
     context_str = "\n\n".join([
         f"Document Chunk:\n{doc['content']}"
         for doc in state.get("retrieved_docs", [])
@@ -87,7 +87,7 @@ async def lint_node(state: EDASubgraphState) -> dict:
     }
 
 async def refine_node(state: EDASubgraphState) -> dict:
-    llm = get_llm(state.get("temperature", 0.0))
+    llm = get_llm(state.get("temperature") or 0.0)
     query = state.get("query", "")
     previous_response = state.get("previous_response", "")
     linter_result = state.get("linter_result", {})

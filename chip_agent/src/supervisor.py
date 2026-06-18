@@ -37,9 +37,12 @@ async def arun_supervisor(messages: list) -> dict:
     system_message = SystemMessage(content=SYSTEM_PROMPT)
     all_messages = [system_message] + messages
     
+    # Debug log the messages
+    logger.info("Supervisor incoming messages: %s", [str(m) for m in all_messages])
+    
     route = ExpertRoute.FINALIZER
     metadata_dict = {
-        "category": "General",
+        "categories": ["General"],
         "node": None,
         "tool": None,
         "project_id": None,
@@ -47,6 +50,7 @@ async def arun_supervisor(messages: list) -> dict:
         "missing_fields": []
     }
     
+    content = ""
     try:
         response = await llm.ainvoke(all_messages)
         content = response.content.strip()
@@ -60,8 +64,14 @@ async def arun_supervisor(messages: list) -> dict:
             route = next_step
             
         raw_meta = parsed.get("metadata", {})
+        cats = raw_meta.get("categories")
+        if not cats and raw_meta.get("category"):
+            cats = [raw_meta.get("category")]
+        elif not cats:
+            cats = []
+            
         query_meta = QueryMetadata(
-            category=raw_meta.get("category"),
+            categories=cats,
             node=raw_meta.get("node"),
             tool=raw_meta.get("tool"),
             project_id=raw_meta.get("project_id"),
@@ -72,12 +82,22 @@ async def arun_supervisor(messages: list) -> dict:
         normalized_meta = normalize_metadata(query_meta)
         metadata_dict = normalized_meta.model_dump()
         
+        return {
+            "route": route,
+            "metadata": metadata_dict
+        }
+        
     except Exception as e:
         logger.error("Supervisor routing failed: %s", e, exc_info=True)
-        # Graceful fallback on any exception
-        pass
+        if content:
+            from langchain_core.messages import AIMessage
+            return {
+                "route": ExpertRoute.FINALIZER,
+                "metadata": metadata_dict,
+                "messages": [AIMessage(content=content)]
+            }
         
-    return {
-        "route": route,
-        "metadata": metadata_dict
-    }
+        return {
+            "route": route,
+            "metadata": metadata_dict
+        }

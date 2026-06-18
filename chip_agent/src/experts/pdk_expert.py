@@ -22,7 +22,7 @@ async def pdk_expert_node(state: AgentState) -> dict:
     if not context:
         context = "No database context found due to connection issue or missing match."
         
-    llm = get_llm(state.get("temperature", 0.0))
+    llm = get_llm(state.get("temperature") or 0.0)
     system_prompt = SystemMessage(
         content=PDK_SYSTEM_PROMPT.format(context=context)
     )

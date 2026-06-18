@@ -6,10 +6,20 @@ class EDARetriever(BaseRetriever):
     category_filter = "EDA"
 
     def _build_filter(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
-        db_filter = {"category": self.category_filter}
+        categories = metadata.get("categories", [])
+        if not categories:
+            categories = [self.category_filter]
+            
+        db_filter = {"category": {"$in": categories}}
         tool = metadata.get("tool")
         if tool:
             db_filter["tool"] = tool
+            
+        EXCLUDED_KEYS = {"confidence", "missing_fields", "categories"}
+        for key, value in metadata.items():
+            if key not in EXCLUDED_KEYS and key not in db_filter and value is not None:
+                db_filter[key] = value
+                
         return db_filter
 
 def retrieve_eda_manuals(query: str, metadata: Dict[str, Any], fetch_k: int = 10, top_k: int = 3) -> Dict[str, Any]:

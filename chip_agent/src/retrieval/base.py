@@ -11,6 +11,22 @@ class BaseRetriever(ABC):
     category_filter: str
     
     def retrieve(self, query: str, metadata: Dict[str, Any], fetch_k: int = 10, top_k: int = 3) -> Dict[str, Any]:
+        # Query Expansion for common abbreviations
+        import re
+        expanded_query = query
+        abbrevs = {
+            r'\bsta\b': 'STA (Static Timing Analysis)',
+            r'\bdrc\b': 'DRC (Design Rule Check)',
+            r'\blvs\b': 'LVS (Layout Versus Schematic)',
+            r'\bpdk\b': 'PDK (Process Design Kit)',
+            r'\beda\b': 'EDA (Electronic Design Automation)'
+        }
+        for pattern, replacement in abbrevs.items():
+            if re.search(pattern, query, re.IGNORECASE):
+                explanation = replacement.split('(')[1].rstrip(')').lower()
+                if explanation not in query.lower():
+                    expanded_query = re.sub(pattern, replacement, expanded_query, flags=re.IGNORECASE)
+
         db_filter = self._build_filter(metadata)
         
         connection_string = settings.DATABASE_URL
@@ -20,7 +36,8 @@ class BaseRetriever(ABC):
         logs = {
             "step": f"{self.category_filter} Retrieval",
             "filter": db_filter,
-            "query": query,
+            "query": expanded_query,
+            "original_query": query,
             "fetch_k": fetch_k,
             "top_k": top_k,
             "status": "success",
@@ -34,7 +51,7 @@ class BaseRetriever(ABC):
                 connection_string=connection_string,
                 collection_name=self.collection_name,
                 embeddings=embeddings,
-                query=query,
+                query=expanded_query,
                 k=fetch_k,
                 filter=db_filter
             )
@@ -65,6 +82,22 @@ class BaseRetriever(ABC):
         }
         
     async def aretrieve(self, query: str, metadata: Dict[str, Any], fetch_k: int = 10, top_k: int = 3) -> Dict[str, Any]:
+        # Query Expansion for common abbreviations
+        import re
+        expanded_query = query
+        abbrevs = {
+            r'\bsta\b': 'STA (Static Timing Analysis)',
+            r'\bdrc\b': 'DRC (Design Rule Check)',
+            r'\blvs\b': 'LVS (Layout Versus Schematic)',
+            r'\bpdk\b': 'PDK (Process Design Kit)',
+            r'\beda\b': 'EDA (Electronic Design Automation)'
+        }
+        for pattern, replacement in abbrevs.items():
+            if re.search(pattern, query, re.IGNORECASE):
+                explanation = replacement.split('(')[1].rstrip(')').lower()
+                if explanation not in query.lower():
+                    expanded_query = re.sub(pattern, replacement, expanded_query, flags=re.IGNORECASE)
+
         from src.vector_store import aquery_vector_store
         db_filter = self._build_filter(metadata)
         
@@ -75,7 +108,8 @@ class BaseRetriever(ABC):
         logs = {
             "step": f"{self.category_filter} Retrieval",
             "filter": db_filter,
-            "query": query,
+            "query": expanded_query,
+            "original_query": query,
             "fetch_k": fetch_k,
             "top_k": top_k,
             "status": "success",
@@ -89,7 +123,7 @@ class BaseRetriever(ABC):
                 connection_string=connection_string,
                 collection_name=self.collection_name,
                 embeddings=embeddings,
-                query=query,
+                query=expanded_query,
                 k=fetch_k,
                 filter=db_filter
             )

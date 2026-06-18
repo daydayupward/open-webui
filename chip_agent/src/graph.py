@@ -10,10 +10,13 @@ from src.message_utils import get_last_ai_content
 
 async def supervisor_node(state: AgentState) -> dict:
     res = await arun_supervisor(state.get("messages", []))
-    return {
+    update = {
         "route": res["route"],
         "metadata": res["metadata"]
     }
+    if "messages" in res:
+        update["messages"] = res["messages"]
+    return update
 
 def router(state: AgentState) -> str:
     return state.get("route", ExpertRoute.FINALIZER)

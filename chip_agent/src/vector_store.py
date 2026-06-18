@@ -1,3 +1,4 @@
+import asyncio
 from langchain_postgres import PGVector
 from langchain_core.embeddings import Embeddings
 
@@ -33,6 +34,6 @@ async def aquery_vector_store(
 ) -> list:
     try:
         store = get_vector_store(connection_string, collection_name, embeddings)
-        return await store.asimilarity_search(query, k=k, filter=filter)
+        return await asyncio.to_thread(store.similarity_search, query, k=k, filter=filter)
     except Exception as e:
         raise RuntimeError(f"Vector store query failed: {e}")
