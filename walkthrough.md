@@ -73,3 +73,18 @@ All **209 unit tests** compiled, ran, and passed successfully inside the WSL env
    Indexing 247 chunks into vector store collection 'project_docs'...
    File jbp_pnr_ug.md indexed successfully. Stats: {'total_input': 247, 'after_dedup': 247, 'indexed': 247, 'batches': 3}
    ```
+
+---
+
+## 3. JBP Platform Flow Retrieval Fix (chip-rag0.3)
+
+### Root Cause
+When the query contains the platform name "JBP" (JaguarMicro Backend Platform), the supervisor metadata extractor parses `"JBP"` as a `project_id`. Because `project_id` filtering was unconditionally applied, queries on platform guides like `jbp_pnr_ug.md` (which have category `Platform_Flow` and `project_id = null`) matched 0 chunks.
+
+### Fix Implemented
+1. **Project ID Normalization**: Added rules to `normalize_metadata` in [src/metadata.py](file:///home/eason/proj/open-webui/chip_agent/src/metadata.py) to map platform names (e.g. `"jbp"` case-insensitive) to `None`.
+2. **Conditional Project Filtering**: Modified `_build_filter` in [src/retrieval/project_retriever.py](file:///home/eason/proj/open-webui/chip_agent/src/retrieval/project_retriever.py) to only apply the SQL metadata `project_id` filter when the query specifically targets project-specific documents (`Project_Doc`) by checking if `db_cats == ["Project_Doc"]`. General and platform documents (like `Platform_Flow` or `PDK`) remain project-independent and are correctly matched even when the query contains metadata for a project. Also added `"project_id"` to `EXCLUDED_KEYS` to prevent it from being automatically copied from metadata.
+
+### Verification Outcome
+* Created and ran a scratch test `test_jbp_query.py` confirming that `jbp中 place and route 执行的步骤和流程图` retrieves 3 relevant chunks from the database instead of 0.
+* Re-ran the full test suite (`pytest`) successfully, verifying that all 209 unit tests continue to pass.
