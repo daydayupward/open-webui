@@ -7,7 +7,7 @@ from src.settings import Settings
 async def test_settings_defaults():
     # Load settings with clear environment (or mock it)
     with patch.dict(os.environ, {}, clear=True):
-        settings = Settings()
+        settings = Settings(_env_file=None, OPENAI_API_KEY="gpustack_8a84577e7871ac6c_2c3d4ef8e376a5d2fca5ceb8e1cc4221")
         assert settings.OPENAI_API_BASE_URL == "http://jmaicloud.jaguarmicro.com:8100/v1"
         assert settings.LLM_MODEL == "nvidia-nemotron-3-super-120b-a12b-fp8"
         assert settings.EMBEDDING_MODEL == "bge-m3"
@@ -29,7 +29,7 @@ async def test_settings_override():
         "DATABASE_URL": "postgresql+psycopg://user:pass@localhost/db"
     }
     with patch.dict(os.environ, test_env, clear=True):
-        settings = Settings()
+        settings = Settings(_env_file=None)
         assert settings.OPENAI_API_BASE_URL == "http://test-base:8000/v1"
         assert settings.OPENAI_API_KEY == "test-key"
         assert settings.LLM_MODEL == "test-llm"

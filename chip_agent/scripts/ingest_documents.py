@@ -17,6 +17,103 @@ import logging
 
 logger = logging.getLogger("ingest_documents")
 
+import base64
+import mimetypes
+import hashlib
+import shutil
+
+def get_image_description(image_path: Path) -> str:
+    try:
+        # Identify mime type
+        mime_type, _ = mimetypes.guess_type(str(image_path))
+        if not mime_type:
+            mime_type = "image/png"
+            
+        with open(image_path, "rb") as f:
+            data = f.read()
+            encoded = base64.b64encode(data).decode("utf-8")
+            
+        data_url = f"data:{mime_type};base64,{encoded}"
+        
+        # Call visual model
+        from src.utils import get_visual_llm
+        from langchain_core.messages import HumanMessage
+        
+        visual_llm = get_visual_llm(temperature=0.0)
+        message = HumanMessage(
+            content=[
+                {"type": "text", "text": "You are a chip physical design expert. Describe this schematic/diagram/table in detail. Identify the process node, EDA tools, metal layers, cell types, signals, DRC violations, and textual metrics shown. Output a structured description in Chinese."},
+                {"type": "image_url", "image_url": {"url": data_url}}
+            ]
+        )
+        response = visual_llm.invoke([message])
+        return response.content.strip()
+    except Exception as e:
+        print(f"Warning: Failed to get visual description for {image_path.name}: {e}", file=sys.stderr)
+        return ""
+
+def process_markdown_images(text: str, doc_dir: Path, category: str) -> str:
+    # Check if category is in image ingestion categories
+    enabled_categories = [c.strip() for c in settings.IMAGE_INGESTION_CATEGORIES.split(",")]
+    if category not in enabled_categories:
+        return text
+
+    # Define target static dir
+    static_dir = Path("/home/eason/proj/open-webui/backend/open_webui/static/uploads/images")
+    static_dir.mkdir(parents=True, exist_ok=True)
+
+    # Regex for markdown image links: ![alt](path "title") or ![alt](path)
+    pattern = re.compile(r'!\[(.*?)\]\((.*?)\)')
+
+    def replacer(match):
+        alt_text = match.group(1)
+        link_content = match.group(2).strip()
+        
+        # Split path and title if present
+        title = ""
+        img_path_str = link_content
+        if ' ' in link_content:
+            parts = link_content.split(' ', 1)
+            img_path_str = parts[0].strip()
+            title = parts[1].strip().strip('"').strip("'")
+            
+        # Remove quotes around path if present
+        img_path_str = img_path_str.strip('"').strip("'")
+        
+        # Resolve absolute path of the image relative to doc_dir
+        img_path = (doc_dir / img_path_str).resolve()
+        if not img_path.exists():
+            print(f"Warning: Image file not found at {img_path}", file=sys.stderr)
+            return match.group(0) # Keep original
+            
+        # Copy to static dir with deterministic name
+        with open(img_path, "rb") as f:
+            content = f.read()
+            img_hash = hashlib.md5(content).hexdigest()
+            
+        suffix = img_path.suffix.lower()
+        new_filename = f"{img_hash}{suffix}"
+        dest_path = static_dir / new_filename
+        
+        # Copy file
+        if not dest_path.exists():
+            shutil.copy2(img_path, dest_path)
+            
+        web_path = f"/static/uploads/images/{new_filename}"
+        
+        # Get VLM description using gpt-image-2
+        print(f"Generating semantic description for image: {img_path.name}...")
+        description = get_image_description(img_path)
+        
+        # Format replacement
+        title_attr = f' "{title}"' if title else ""
+        replacement = f'![{alt_text}]({web_path}{title_attr})'
+        if description:
+            replacement += f'\n【图片语义描述：{description}】'
+        return replacement
+
+    return pattern.sub(replacer, text)
+
 def clean_text_content(text: str, watermark: Optional[str] = None) -> str:
     if not text:
         return text
@@ -122,10 +219,16 @@ def process_file(file_path: Path, args) -> Optional[List]:
                 print(f"Warning: PDF cleaning failed for {file_path.name}, falling back to original file.")
                 temp_pdf_path = None
 
-        md = MarkItDown()
-        print(f"Converting document via MarkItDown: {target_path.name}...")
-        result = md.convert(str(target_path.absolute()))
-        text = result.text_content
+        if file_path.suffix.lower() == ".md":
+            print(f"Reading Markdown document directly: {file_path.name}...")
+            with open(file_path, "r", encoding="utf-8") as f:
+                text = f.read()
+            text = process_markdown_images(text, file_path.parent, args.category)
+        else:
+            md = MarkItDown()
+            print(f"Converting document via MarkItDown: {target_path.name}...")
+            result = md.convert(str(target_path.absolute()))
+            text = result.text_content
         
         if getattr(args, "clean", False):
             text = clean_text_content(text, getattr(args, "watermark", None))

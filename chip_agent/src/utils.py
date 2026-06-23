@@ -11,6 +11,15 @@ def get_llm(temperature: float = 0.0):
         temperature=temperature
     )
 
+@lru_cache(maxsize=4)
+def get_visual_llm(temperature: float = 0.0):
+    return ChatOpenAI(
+        base_url=settings.VISUAL_API_BASE_URL or settings.OPENAI_API_BASE_URL,
+        api_key=settings.VISUAL_API_KEY or settings.OPENAI_API_KEY,
+        model=settings.VISUAL_MODEL or "gpt-image-2",
+        temperature=temperature
+    )
+
 @lru_cache(maxsize=1)
 def get_embeddings():
     return OpenAIEmbeddings(

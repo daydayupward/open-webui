@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     RERANK_API_BASE_URL: Optional[str] = None
     RERANK_API_KEY: Optional[str] = None
     
+    VISUAL_API_BASE_URL: Optional[str] = "https://jmapi01.jaguarmicro.com"
+    VISUAL_API_KEY: Optional[str] = None
+    VISUAL_MODEL: str = "gpt-image-2"
+    
+    # Comma-separated categories to extract and describe images for
+    IMAGE_INGESTION_CATEGORIES: str = "PDK,StdCell,SRAM,IP,Platform_Flow"
+    
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/chip_design"
 
     @property
