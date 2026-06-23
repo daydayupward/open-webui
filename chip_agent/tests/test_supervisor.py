@@ -7,25 +7,25 @@ from src.supervisor import parse_json_safely, arun_supervisor
 @pytest.mark.anyio
 async def test_metadata_normalization():
     # Test Node Normalization
-    meta1 = QueryMetadata(category="pdk", node="n5", tool="innovus", project_id="proja")
+    meta1 = QueryMetadata(categories=["pdk"], node="n5", tool="innovus", project_id="proja")
     norm1 = normalize_metadata(meta1)
-    assert norm1.category == "PDK"
+    assert "PDK" in norm1.categories
     assert norm1.node == "N5"
     assert norm1.tool == "Innovus"
     assert norm1.project_id == "Proj_A"
 
     # Test Tool / Project Normalization variations
-    meta2 = QueryMetadata(category="eda", node="7nm", tool="icc2", project_id="project_b")
+    meta2 = QueryMetadata(categories=["eda"], node="7nm", tool="icc2", project_id="project_b")
     norm2 = normalize_metadata(meta2)
-    assert norm2.category == "EDA"
+    assert "EDA" in norm2.categories
     assert norm2.node == "N7"
     assert norm2.tool == "ICC2"
     assert norm2.project_id == "Proj_B"
     
-    # Test Fallback and general category
-    meta3 = QueryMetadata(category="general", node="n16", tool="other_tool", project_id="other_proj")
+    # Test Fallback and general categories
+    meta3 = QueryMetadata(categories=["general"], node="n16", tool="other_tool", project_id="other_proj")
     norm3 = normalize_metadata(meta3)
-    assert norm3.category == "General"
+    assert "Literature" in norm3.categories
     assert norm3.node == "N16"
     assert norm3.tool == "Other_tool"
     assert norm3.project_id == "other_proj"
@@ -47,7 +47,7 @@ async def test_run_supervisor_success(mock_get_llm):
         content='''{
             "next": "pdk_expert",
             "metadata": {
-                "category": "pdk",
+                "categories": ["pdk"],
                 "node": "n5",
                 "tool": null,
                 "project_id": null,
@@ -60,7 +60,7 @@ async def test_run_supervisor_success(mock_get_llm):
     
     result = await arun_supervisor([HumanMessage(content="What is the metal pitch of N5 M3?")])
     assert result["route"] == "pdk_expert"
-    assert result["metadata"]["category"] == "PDK"
+    assert "PDK" in result["metadata"]["categories"]
     assert result["metadata"]["node"] == "N5"
     assert result["metadata"]["tool"] is None
     assert result["metadata"]["confidence"] == 0.95
@@ -76,5 +76,5 @@ async def test_run_supervisor_fallback_on_invalid_json(mock_get_llm):
     result = await arun_supervisor([HumanMessage(content="Invalid input text.")])
     # Should fall back to default route and metadata
     assert result["route"] == "finalizer"
-    assert result["metadata"]["category"] == "General"
+    assert "Literature" in result["metadata"]["categories"]
     assert result["metadata"]["node"] is None

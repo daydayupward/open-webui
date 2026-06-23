@@ -12,7 +12,7 @@ from scripts.ingest_documents import parse_args, process_file
 def test_parse_args():
     args = parse_args()
     assert args.file == "dummy.pdf"
-    assert args.categories == "PDK"
+    assert args.category == "PDK"
     assert args.node == "N5"
     assert args.tool == "Innovus"
     assert args.reset is False

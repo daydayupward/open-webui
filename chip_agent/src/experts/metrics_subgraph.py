@@ -233,9 +233,12 @@ async def summarize_node(state: MetricsSubgraphState) -> dict:
         )
 
     if retrieved_docs:
-        docs_str = "\n\n".join(
-            f"Document Chunk:\n{doc['content']}" for doc in retrieved_docs
-        )
+        context_list = []
+        for idx, doc in enumerate(retrieved_docs):
+            meta = doc.get("metadata") or {}
+            source_name = meta.get("name") or meta.get("source") or "Document"
+            context_list.append(f"[{idx + 1}] Source: {source_name}\nContent: {doc['content']}")
+        docs_str = "\n\n".join(context_list)
         context_parts.append(f"Retrieved Documents:\n{docs_str}")
 
     if not context_parts:

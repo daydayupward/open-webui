@@ -42,7 +42,7 @@ async def arun_supervisor(messages: list) -> dict:
     
     route = ExpertRoute.FINALIZER
     metadata_dict = {
-        "categories": ["General"],
+        "categories": ["Literature"],
         "node": None,
         "tool": None,
         "project_id": None,

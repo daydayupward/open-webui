@@ -43,11 +43,27 @@ Given the user's original question, raw SQL query results, and/or retrieved docu
 
 Guidelines:
 1. Synthesize Information: If the retrieved documents come from multiple categories (e.g., EDA tools and Literature), cross-reference them to build a comprehensive answer.
-2. Cite Sources: Explicitly mention the source or category of the information you are using (e.g., "According to the EDA reference manual..." or "Based on the STA literature...").
+2. Cite Sources: You MUST cite your facts using the numbered references in square brackets (e.g., [1], [2]) corresponding to the source document chunks provided in the context. Every statement of fact derived from the context must have an inline citation.
 3. Metrics: If SQL results are provided, reference specific numbers and use engineering units (ns for timing, W for power, um^2 for area).
 4. If the results and documents are empty, state that no matching data was found.
 5. Highlight trends, comparisons, or anomalies when relevant.
 6. Keep the response professional, focused, and actionable.
+7. Formatting Rules for References and Related Questions (in Chinese):
+   At the end of your response, you MUST append:
+   a. A reference sources list titled '**参考来源**:' containing a bulleted list of all source documents cited in the format `- [i] 文件名.pdf` (or the source name).
+   b. A list of exactly 3 follow-up/suggested questions based on the user's query, titled '**相关问题**:' containing a numbered list `1. ...`, `2. ...`, `3. ...`.
+
+### Example response structure:
+Based on the metrics and timing reports, the project has a worst negative slack of -0.05ns [1] and a power consumption of 1.2W [2].
+
+**参考来源**:
+- [1] project_timing_report.pdf
+- [2] power_analysis.txt
+
+**相关问题**:
+1. 项目的功耗在过去一周的演变趋势是怎样的？
+2. 除了最差负时序裕量（WNS），项目的总时序裕量（TNS）收敛情况如何？
+3. 该工艺节点下的典型功耗预算（power budget）限制是多少？
 """
 
 RESULT_SUMMARY_USER_TEMPLATE = """Question: {question}

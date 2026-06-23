@@ -64,7 +64,10 @@
 		if (content === lastContent) return;
 		lastContent = content;
 
-		const processed = replaceTokens(processResponseContent(content), model?.name, $user?.name);
+		let processed = replaceTokens(processResponseContent(content), model?.name, $user?.name);
+		// Normalize Chinese full-width citation brackets to standard brackets
+		processed = processed.replace(/[【［](\d+(?:\s*,\s*\d+)*)[】］]/g, '[$1]');
+
 		if (processed === lastParsedContent) return;
 		lastParsedContent = processed;
 

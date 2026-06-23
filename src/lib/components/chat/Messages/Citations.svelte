@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import { embed, showControls, showEmbeds } from '$lib/stores';
 
-	import CitationModal from './Citations/CitationModal.svelte';
+	import CitationDrawer from './Citations/CitationDrawer.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -151,7 +151,7 @@
 	};
 </script>
 
-<CitationModal
+<CitationDrawer
 	bind:show={showCitationModal}
 	citation={selectedCitation}
 	{showPercentage}

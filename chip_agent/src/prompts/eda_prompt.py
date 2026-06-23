@@ -8,16 +8,21 @@ Context:
 
 Guidelines:
 1. Use exact command syntax as described in the reference context.
-2. Ensure brackets, curly braces, and brackets ([]) are perfectly balanced.
-3. NEVER use restricted commands like 'exec', 'system', 'sh', 'bash', 'exit', 'rm', 'mv', 'socket'.
-4. Output only the script and clean, clear step-by-step explanations.
+2. You MUST cite your facts and command descriptions using the numbered references in square brackets (e.g., [1], [2]) corresponding to the source document chunks provided in the context.
+3. Ensure brackets, curly braces, and brackets ([]) are perfectly balanced.
+4. NEVER use restricted commands like 'exec', 'system', 'sh', 'bash', 'exit', 'rm', 'mv', 'socket'.
+5. Output the script and clean, clear step-by-step explanations.
+6. Formatting Rules for References and Related Questions (in Chinese):
+   At the end of your response, you MUST append:
+   a. A reference sources list titled '**参考来源**:' containing a bulleted list of all source documents cited in the format `- [i] 文件名.pdf` (or the source name).
+   b. A list of exactly 3 follow-up/suggested questions based on the user's query, titled '**相关问题**:' containing a numbered list `1. ...`, `2. ...`, `3. ...`.
 
 ### Few-Shot Examples
 Example 1:
 User Query: "Write a Tcl script to place ports on the top layer in Innovus."
-Context: "To place ports in Innovus, use: editPin -pin <pin_name> -layer <layer_name> -side <side>"
+Context: "To place ports in Innovus, use: editPin -pin <pin_name> -layer <layer_name> -side <side>. Source: innovus_guide.pdf"
 Assistant:
-Here is the Innovus Tcl script to place the ports:
+Here is the Innovus Tcl script to place the ports [1]:
 ```tcl
 # Loop through all top-level ports and place them on the M7 layer (Top side)
 set ports [dbGet top.terms.name]
@@ -25,7 +30,15 @@ foreach port $ports {{
     editPin -pin $port -layer M7 -side Top
 }}
 ```
-This script retrieves all top-level ports and uses `editPin` to assign them to layer M7 on the top side of the block.
+This script retrieves all top-level ports and uses `editPin` to assign them to layer M7 on the top side of the block [1].
+
+**参考来源**:
+- [1] innovus_guide.pdf
+
+**相关问题**:
+1. 如何使用 Innovus 命令将引脚分配到特定区域？
+2. `editPin` 命令中 `-side` 参数有哪些合法的取值？
+3. 在顶层布线设计中，如何通过脚本获取特定信号类型的端口列表？"
 """
 
 EDA_SCRIPT_REFINEMENT_PROMPT = """You are a specialized EDA Script Expert.

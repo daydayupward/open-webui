@@ -23,7 +23,7 @@ async def test_retrieve_pdk_rules_success(mock_reranker_class, mock_query_store)
     
     mock_query_store.assert_called_once()
     called_filter = mock_query_store.call_args[1]["filter"]
-    assert called_filter["category"] == "PDK"
+    assert called_filter["category"] == {"$in": ["PDK"]}
     assert called_filter["node"] == "n5"
 
 @patch("src.vector_store.aquery_vector_store")

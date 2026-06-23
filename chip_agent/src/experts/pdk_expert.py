@@ -18,7 +18,11 @@ async def pdk_expert_node(state: AgentState) -> dict:
     chunks = retrieval_res["chunks"]
     logs = retrieval_res["logs"]
     
-    context = "\n\n".join([c.page_content for c in chunks])
+    context_list = []
+    for idx, c in enumerate(chunks):
+        source_name = c.metadata.get("name") or c.metadata.get("source") or "Document"
+        context_list.append(f"[{idx + 1}] Source: {source_name}\nContent: {c.page_content}")
+    context = "\n\n".join(context_list)
     if not context:
         context = "No database context found due to connection issue or missing match."
         

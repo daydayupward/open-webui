@@ -54,7 +54,7 @@ async def test_retrieve_eda_manuals(mock_reranker_class, mock_query_store):
     assert res["chunks"][0].page_content == "Innovus floorPlan command syntax"
     
     called_filter = mock_query_store.call_args[1]["filter"]
-    assert called_filter["category"] == "EDA"
+    assert called_filter["category"] == {"$in": ["EDA"]}
     assert called_filter["tool"] == "Innovus"
 
 @patch("src.experts.eda_script_subgraph.aretrieve_eda_manuals")

@@ -13,6 +13,9 @@ from src.ingestion.indexer import index_chunks, delete_by_doc_id
 from src.ingestion.metadata_mapper import _generate_doc_id
 
 import re
+import logging
+
+logger = logging.getLogger("ingest_documents")
 
 def clean_text_content(text: str, watermark: Optional[str] = None) -> str:
     if not text:
@@ -55,10 +58,11 @@ def clean_text_content(text: str, watermark: Optional[str] = None) -> str:
 def parse_args():
     parser = argparse.ArgumentParser(description="Ingest PDF/Excel/Markdown files into chip RAG database.")
     parser.add_argument("-f", "--file", required=True, help="Path to document file or directory of documents")
-    parser.add_argument("-c", "--category", required=True, choices=["PDK", "EDA", "Project_Doc", "General"], help="Document category")
+    parser.add_argument("-c", "--category", required=True, choices=["PDK", "StdCell", "SRAM", "IP", "EDA", "Platform_Flow", "Project_Doc", "Script", "Literature", "General"], help="Document category")
     parser.add_argument("-n", "--node", help="Process node (e.g., N5, N7)")
     parser.add_argument("-t", "--tool", help="EDA tool (e.g., Innovus, ICC2)")
     parser.add_argument("-p", "--project-id", help="Project ID (e.g., Proj_A, Proj_B)")
+    parser.add_argument("-v", "--vendor", help="IP vendor (e.g., Synopsys, Cadence, TSMC)")
     parser.add_argument("-b", "--batch-size", type=int, default=100, help="Vector store indexing batch size")
     parser.add_argument("--reset", action="store_true", help="Delete existing database chunks for the document before indexing")
     parser.add_argument("--clean", action="store_true", help="Clean PDF watermarks/margins before loading")
@@ -68,6 +72,18 @@ def parse_args():
     return parser.parse_args()
 
 def process_file(file_path: Path, args) -> Optional[List]:
+    if file_path.suffix.lower() == ".pdf" and file_path.exists():
+        try:
+            with open(file_path, "rb") as f:
+                header = f.read(50)
+                if b"%TSD-Header-###%" in header:
+                    print(f"Error: '{file_path.name}' is a TSMC Secure Document (TSD) encrypted with TSMC DRM.", file=sys.stderr)
+                    print("Standard open-source PDF parsers cannot read DRM-protected TSD files directly.", file=sys.stderr)
+                    print("Please decrypt the file first (e.g., by printing to a standard PDF or exporting to plain text) and ingest the decrypted file.", file=sys.stderr)
+                    return None
+        except Exception as e:
+            logger.warning("Failed to check file header for %s: %s", file_path.name, e)
+
     try:
         from markitdown import MarkItDown
     except ImportError:
@@ -124,7 +140,8 @@ def process_file(file_path: Path, args) -> Optional[List]:
                 "category": args.category,
                 "node": args.node,
                 "tool": args.tool,
-                "project_id": args.project_id
+                "project_id": args.project_id,
+                "vendor": getattr(args, "vendor", None)
             },
             source=str(file_path.absolute())
         )
@@ -168,8 +185,14 @@ def main():
     connection_string = settings.DATABASE_URL
     collection_mapping = {
         "PDK": "pdk_rules",
+        "StdCell": "pdk_rules",
+        "SRAM": "pdk_rules",
         "EDA": "eda_manuals",
+        "IP": "project_docs",
+        "Platform_Flow": "project_docs",
         "Project_Doc": "project_docs",
+        "Script": "project_docs",
+        "Literature": "project_docs",
         "General": "project_docs"
     }
     collection_name = collection_mapping[args.category]

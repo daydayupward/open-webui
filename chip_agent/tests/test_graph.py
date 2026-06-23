@@ -13,7 +13,7 @@ async def test_graph_routing(mock_metrics, mock_eda, mock_pdk, mock_arun_supervi
     mock_arun_supervisor.return_value = {
         "route": "pdk_expert",
         "metadata": {
-            "category": "PDK",
+            "categories": ["PDK"],
             "node": "N5",
             "tool": None,
             "project_id": None,
@@ -40,7 +40,7 @@ async def test_graph_routing(mock_metrics, mock_eda, mock_pdk, mock_arun_supervi
     
     assert "messages" in result
     assert result["route"] == "pdk_expert"
-    assert result["metadata"]["category"] == "PDK"
+    assert "PDK" in result["metadata"]["categories"]
     assert result["metadata"]["node"] == "N5"
     assert result["final_answer"] == "[PDK Expert] The metal pitch is 36nm."
     mock_pdk.assert_called_once()
@@ -55,7 +55,7 @@ async def test_full_chain_pdk_execution(mock_query_store, mock_chat_openai):
     mock_llm = AsyncMock()
     mock_llm.ainvoke.side_effect = [
         # Supervisor
-        AIMessage(content='{"next": "pdk_expert", "metadata": {"category": "PDK", "node": "N5"}}'),
+        AIMessage(content='{"next": "pdk_expert", "metadata": {"categories": ["PDK"], "node": "N5"}}'),
         # PDK Expert
         AIMessage(content="[PDK Expert] The M3 metal pitch for N5 process node is 36nm.")
     ]
@@ -82,7 +82,7 @@ async def test_full_chain_pdk_execution(mock_query_store, mock_chat_openai):
 
     # Verify state progression
     assert result["route"] == "pdk_expert"
-    assert result["metadata"]["category"] == "PDK"
+    assert "PDK" in result["metadata"]["categories"]
     assert result["metadata"]["node"] == "N5"
     assert result["final_answer"] == "[PDK Expert] The M3 metal pitch for N5 process node is 36nm."
     assert len(result["retrieved_docs"]) == 1

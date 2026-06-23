@@ -23,9 +23,15 @@ from src.experts.metrics_subgraph import (
 # --- Unit tests for individual nodes ---
 
 
+@patch("src.experts.metrics_subgraph.get_llm")
 @pytest.mark.anyio
-async def test_route_node_missing_project_id():
+async def test_route_node_missing_project_id(mock_get_llm):
     """Route node should return 'clarify' when project_id is missing."""
+    from unittest.mock import AsyncMock
+    mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(content="sql")
+    mock_get_llm.return_value = mock_llm
+
     state = {
         "query": "What is the WNS for my project?",
         "project_id": "",
@@ -242,7 +248,7 @@ async def test_retrieve_docs_node(mock_retrieve):
 
     assert len(result["retrieved_docs"]) == 1
     assert result["retrieved_docs"][0]["content"] == "Timing closure methodology"
-    mock_retrieve.assert_called_once_with("timing closure methodology", "P100")
+    mock_retrieve.assert_called_once_with("timing closure methodology", "P100", metadata={})
 
 
 @patch("src.experts.metrics_subgraph.get_llm")
@@ -533,6 +539,7 @@ async def test_missing_project_id_flow(mock_get_llm):
     """Test that missing project_id routes to clarify."""
     from unittest.mock import AsyncMock
     mock_llm = AsyncMock()
+    mock_llm.ainvoke.return_value = AIMessage(content="sql")
     mock_get_llm.return_value = mock_llm
 
     subgraph = build_metrics_subgraph()

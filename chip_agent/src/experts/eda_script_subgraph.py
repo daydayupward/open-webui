@@ -46,10 +46,12 @@ async def retrieve_node(state: EDASubgraphState) -> dict:
 
 async def generate_node(state: EDASubgraphState) -> dict:
     llm = get_llm(state.get("temperature") or 0.0)
-    context_str = "\n\n".join([
-        f"Document Chunk:\n{doc['content']}"
-        for doc in state.get("retrieved_docs", [])
-    ])
+    context_list = []
+    for idx, doc in enumerate(state.get("retrieved_docs", [])):
+        meta = doc.get("metadata") or {}
+        source_name = meta.get("name") or meta.get("source") or "Document"
+        context_list.append(f"[{idx + 1}] Source: {source_name}\nContent: {doc['content']}")
+    context_str = "\n\n".join(context_list)
     if not context_str:
         context_str = "No specific reference manuals found."
         

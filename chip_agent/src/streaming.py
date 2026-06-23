@@ -37,18 +37,50 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
             elif event_type == "on_chain_end" and name == "LangGraph":
                 data = event.get("data", {})
                 output = data.get("output")
-                if isinstance(output, dict) and "final_answer" in output and "route" in output:
-                    final_answer = output["final_answer"]
-                    if not chunks_yielded and final_answer:
-                        chunk_data = format_openai_chunk(
-                            completion_id=completion_id,
-                            content=final_answer,
-                            created_time=created_time,
-                            model_name=model_name,
-                            finish_reason=None
-                        )
-                        yield f"data: {json.dumps(chunk_data)}\n\n"
-                        chunks_yielded += 1
+                if isinstance(output, dict):
+                    retrieved_docs = output.get("retrieved_docs", [])
+                    if retrieved_docs:
+                        for doc in retrieved_docs:
+                            page_content = doc.get("page_content") or doc.get("content") or ""
+                            meta = doc.get("metadata", {}) or {}
+                            source_name = meta.get("name") or meta.get("source") or "Document"
+                            file_id = meta.get("file_id")
+                            page = meta.get("page")
+                            
+                            source_event = {
+                                "event": {
+                                    "type": "source",
+                                    "data": {
+                                        "source": {
+                                            "name": source_name,
+                                            "id": file_id or source_name
+                                        },
+                                        "document": [page_content],
+                                        "metadata": [
+                                            {
+                                                "source": file_id or source_name,
+                                                "name": source_name,
+                                                "page": page,
+                                                "file_id": file_id
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                            yield f"data: {json.dumps(source_event)}\n\n"
+
+                    if "final_answer" in output and "route" in output:
+                        final_answer = output["final_answer"]
+                        if not chunks_yielded and final_answer:
+                            chunk_data = format_openai_chunk(
+                                completion_id=completion_id,
+                                content=final_answer,
+                                created_time=created_time,
+                                model_name=model_name,
+                                finish_reason=None
+                            )
+                            yield f"data: {json.dumps(chunk_data)}\n\n"
+                            chunks_yielded += 1
                             
     except Exception as e:
         error_data = format_openai_chunk(

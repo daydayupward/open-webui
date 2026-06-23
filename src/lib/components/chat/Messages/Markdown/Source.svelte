@@ -7,6 +7,7 @@
 	export let id;
 
 	export let title: string = 'N/A';
+	export let index: number | string = '';
 
 	export let onClick: Function = () => {};
 
@@ -41,13 +42,13 @@
 {#if title !== 'N/A'}
 	<button
 		aria-label={$i18n.t('View source: {{title}}', { title: formattedTitle(decodeString(title)) })}
-		class="text-[10px] w-fit translate-y-[2px] px-2 py-0.5 dark:bg-white/5 dark:text-white/80 dark:hover:text-white bg-gray-50 text-black/80 hover:text-black transition rounded-xl"
+		class="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/80 hover:bg-blue-100/90 dark:bg-blue-950/30 dark:hover:bg-blue-900/40 border border-blue-100/50 dark:border-blue-900/30 px-1.5 py-0.5 rounded-md transition duration-150 inline-flex items-center align-baseline mx-0.5 cursor-pointer select-none"
 		on:click={() => {
 			onClick(id);
 		}}
 	>
 		<span class="line-clamp-1">
-			{getDisplayTitle(formattedTitle(decodeString(title)))}
+			[{index || getDisplayTitle(formattedTitle(decodeString(title)))}]
 		</span>
 	</button>
 {/if}

@@ -105,19 +105,28 @@ class TestNormalizeCategory:
         assert _normalize_category("PDK") == "PDK"
         assert _normalize_category("EDA") == "EDA"
         assert _normalize_category("Project_Doc") == "Project_Doc"
-        assert _normalize_category("General") == "General"
+        assert _normalize_category("Literature") == "Literature"
+        assert _normalize_category("Platform_Flow") == "Platform_Flow"
+        assert _normalize_category("StdCell") == "StdCell"
+        assert _normalize_category("SRAM") == "SRAM"
 
     def test_lowercase_alias(self):
         assert _normalize_category("pdk") == "PDK"
         assert _normalize_category("eda") == "EDA"
-        assert _normalize_category("general") == "General"
+        assert _normalize_category("general") == "Literature"
 
     def test_synonym_aliases(self):
         assert _normalize_category("process") == "PDK"
+        assert _normalize_category("foundry_doc") == "PDK"
         assert _normalize_category("tool") == "EDA"
         assert _normalize_category("project") == "Project_Doc"
         assert _normalize_category("doc") == "Project_Doc"
         assert _normalize_category("project_doc") == "Project_Doc"
+        assert _normalize_category("liberty") == "StdCell"
+        assert _normalize_category("memory") == "SRAM"
+        assert _normalize_category("checklist_template") == "Platform_Flow"
+        assert _normalize_category("checklist_result") == "Project_Doc"
+        assert _normalize_category("script") == "Script"
 
     def test_none_returns_none(self):
         assert _normalize_category(None) is None

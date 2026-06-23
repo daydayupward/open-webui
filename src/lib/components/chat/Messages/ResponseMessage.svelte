@@ -176,6 +176,48 @@
 		statusEntries.length > 0 &&
 		!(statusEntries.at(-1)?.hidden ?? false);
 
+	let parsedFollowUps = [];
+	let cleanedContent = '';
+
+	$: {
+		const content = message?.content;
+		if (content) {
+			const match = content.match(/\*\*相关问题\*\*[:：]\s*\n([\s\S]*)$/);
+			if (match) {
+				const listContent = match[1];
+				const items = [];
+				const lines = listContent.split('\n');
+				for (let line of lines) {
+					const lineMatch = line.match(/^\s*(?:\d+\.|\-)\s*(.*)/);
+					if (lineMatch) {
+						let q = lineMatch[1].trim();
+						q = q.replace(/^\*\*|\*\*$/g, '').trim();
+						if (q) {
+							items.push(q);
+						}
+					}
+				}
+				if (items.length > 0) {
+					parsedFollowUps = items;
+					cleanedContent = content.substring(0, match.index).trim();
+				} else {
+					parsedFollowUps = [];
+					cleanedContent = content;
+				}
+			} else {
+				parsedFollowUps = [];
+				cleanedContent = content;
+			}
+		} else {
+			parsedFollowUps = [];
+			cleanedContent = '';
+		}
+	}
+
+	$: combinedFollowUps = [
+		...new Set([...(message?.followUps ?? []), ...parsedFollowUps])
+	];
+
 	let edit = false;
 	let editedContent = '';
 	let editedOutput: any[] | null = null;
@@ -236,7 +278,7 @@
 		const { signal } = speakAbort;
 
 		speaking = true;
-		const content = removeAllDetails(message.content);
+		const content = removeAllDetails(cleanedContent);
 
 		if ($config.audio.tts.engine === '') {
 			let voices = [];
@@ -833,7 +875,7 @@
 								<!-- unless message.error === true which is legacy error handling, where the error message is stored in message.content -->
 								<ContentRenderer
 									id={`${chatId}-${message.id}`}
-									content={message.content}
+									content={cleanedContent}
 									sources={message.sources}
 									floatingButtons={message?.done &&
 										!readOnly &&
@@ -1033,7 +1075,7 @@
 											? 'visible'
 											: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition copy-response-button"
 										on:click={() => {
-											copyToClipboard(message.content);
+											copyToClipboard(cleanedContent);
 										}}
 									>
 										<svg
@@ -1498,10 +1540,10 @@
 						/>
 					{/if}
 
-					{#if (isLastMessage || ($settings?.keepFollowUpPrompts ?? false)) && message.done && !readOnly && (message?.followUps ?? []).length > 0}
+					{#if (isLastMessage || ($settings?.keepFollowUpPrompts ?? false)) && message.done && !readOnly && (combinedFollowUps.length > 0)}
 						<div class="mt-2.5" in:fade={{ duration: 100 }}>
 							<FollowUps
-								followUps={message?.followUps}
+								followUps={combinedFollowUps}
 								onClick={(prompt) => {
 									if ($settings?.insertFollowUpPrompt ?? false) {
 										// Insert the follow-up prompt into the input box

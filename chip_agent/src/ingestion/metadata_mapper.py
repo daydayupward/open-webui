@@ -25,13 +25,25 @@ logger = logging.getLogger(__name__)
 # Valid values for categorical fields
 # ---------------------------------------------------------------------------
 
-VALID_CATEGORIES = {"PDK", "EDA", "Project_Doc", "General"}
+VALID_CATEGORIES = {
+    "PDK",
+    "StdCell",
+    "SRAM",
+    "IP",
+    "EDA",
+    "Platform_Flow",
+    "Project_Doc",
+    "Script",
+    "Literature",
+}
 
 VALID_NODES = {"N5", "N7"}
 
 VALID_TOOLS = {"Innovus", "ICC2", "Calibre", "PrimeTime"}
 
 VALID_PROJECT_IDS = {"Proj_A", "Proj_B"}
+
+VALID_VENDORS = {"Synopsys", "Cadence", "Innosilicon", "Alphawave", "TSMC"}
 
 # ---------------------------------------------------------------------------
 # Unified index metadata model
@@ -47,7 +59,8 @@ class ChunkIndexMetadata(BaseModel):
 
     doc_id: str = Field(..., description="Deterministic document-level id.")
     chunk_id: str = Field(..., description="Deterministic chunk-level id from chunker.")
-    category: Optional[str] = Field(None, description="Document category: PDK, EDA, Project_Doc, General.")
+    category: Optional[str] = Field(None, description="Document category: PDK, EDA, Project_Doc, General, IP.")
+    vendor: Optional[str] = Field(None, description="IP vendor, e.g., Synopsys, Cadence, TSMC.")
     node: Optional[str] = Field(None, description="Process node, e.g. N5, N7.")
     tool: Optional[str] = Field(None, description="EDA tool, e.g. Innovus, ICC2.")
     project_id: Optional[str] = Field(None, description="Project identifier, e.g. Proj_A.")
@@ -73,12 +86,47 @@ def _normalize_category(value: Optional[str]) -> Optional[str]:
     mapping = {
         "pdk": "PDK",
         "process": "PDK",
-        "eda": "EDA",
-        "tool": "EDA",
+        "foundry": "PDK",
+        "foundry_doc": "PDK",
+        "foundry_manual": "PDK",
+        "stdcell": "StdCell",
+        "standard_cell": "StdCell",
+        "liberty": "StdCell",
+        "lib": "StdCell",
+        "sram": "SRAM",
+        "memory": "SRAM",
+        "macro": "SRAM",
+        "platform": "Platform_Flow",
+        "flow": "Platform_Flow",
+        "methodology": "Platform_Flow",
+        "platform_flow": "Platform_Flow",
+        "checklist_template": "Platform_Flow",
+        "signoff_template": "Platform_Flow",
+        "script": "Script",
+        "tcl": "Script",
+        "python": "Script",
+        "makefile": "Script",
+        "csh": "Script",
+        "sh": "Script",
+        "literature": "Literature",
+        "paper": "Literature",
+        "book": "Literature",
+        "textbook": "Literature",
+        "general": "Literature",
+        "training": "Literature",
+        "team": "Literature",
         "project_doc": "Project_Doc",
         "project": "Project_Doc",
         "doc": "Project_Doc",
-        "general": "General",
+        "checklist_result": "Project_Doc",
+        "project_checklist": "Project_Doc",
+        "ip": "IP",
+        "ip_doc": "IP",
+        "datasheet": "IP",
+        "manual": "IP",
+        "eda": "EDA",
+        "tool": "EDA",
+        "command": "EDA",
     }
     return mapping.get(lower, value.strip())
 
@@ -130,6 +178,26 @@ def _normalize_project_id(value: Optional[str]) -> Optional[str]:
     if "projb" in collapsed or "projectb" in collapsed:
         return "Proj_B"
     return value.strip()
+
+
+def _normalize_vendor(value: Optional[str]) -> Optional[str]:
+    """Normalise an IP vendor string."""
+    if not value:
+        return None
+    lower = value.strip().lower()
+    mapping = {
+        "synopsys": "Synopsys",
+        "snps": "Synopsys",
+        "cadence": "Cadence",
+        "cdns": "Cadence",
+        "innosilicon": "Innosilicon",
+        "alphawave": "Alphawave",
+        "tsmc": "TSMC",
+    }
+    canonical = mapping.get(lower)
+    if canonical:
+        return canonical
+    return value.strip().capitalize()
 
 
 def _generate_doc_id(source: Optional[str], text_prefix: str) -> str:
@@ -185,6 +253,13 @@ def normalize_metadata_fields(metadata: Dict[str, Any]) -> Dict[str, Any]:
                 normalised,
             )
         metadata["project_id"] = normalised
+
+    if "vendor" in metadata:
+        original = metadata["vendor"]
+        normalised = _normalize_vendor(original)
+        if normalised and normalised not in VALID_VENDORS:
+            logger.warning("Unknown vendor %r after normalisation; keeping as-is.", normalised)
+        metadata["vendor"] = normalised
 
     return metadata
 
@@ -245,6 +320,7 @@ def merge_metadata(chunk: TextChunk, doc: Optional[IngestionDocument] = None) ->
         node=doc_meta.get("node"),
         tool=doc_meta.get("tool"),
         project_id=doc_meta.get("project_id"),
+        vendor=doc_meta.get("vendor"),
         source=chunk_meta.source,
         section=chunk_meta.section,
         page=page,
