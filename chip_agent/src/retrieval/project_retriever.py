@@ -10,8 +10,8 @@ class ProjectRetriever(BaseRetriever):
         categories = metadata.get("categories", [])
         
         db_filter = {}
+        db_cats = []
         if categories and "General" not in categories:
-            db_cats = []
             for c in categories:
                 if c == "Project":
                     db_cats.append("Project_Doc")
@@ -19,12 +19,14 @@ class ProjectRetriever(BaseRetriever):
                     db_cats.append(c)
             db_filter["category"] = {"$in": db_cats}
         elif not categories:
-            db_filter["category"] = {"$in": [self.category_filter]}
+            db_cats = [self.category_filter]
+            db_filter["category"] = {"$in": db_cats}
             
-        if project_id:
+        # Only filter by project_id if the query targets project-specific docs (Project_Doc)
+        if project_id and db_cats == ["Project_Doc"]:
             db_filter["project_id"] = project_id
         
-        EXCLUDED_KEYS = {"confidence", "missing_fields", "categories"}
+        EXCLUDED_KEYS = {"confidence", "missing_fields", "categories", "project_id"}
         for key, value in metadata.items():
             if key not in EXCLUDED_KEYS and key not in db_filter and value is not None:
                 db_filter[key] = value
