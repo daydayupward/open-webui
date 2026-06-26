@@ -185,8 +185,8 @@ def _split_long_paragraph(
 
 def chunk_document(
     doc: IngestionDocument,
-    max_chunk_chars: int = 1000,
-    overlap_chars: int = 0,
+    max_chunk_chars: int = 2000,
+    overlap_chars: int = 500,
 ) -> List[TextChunk]:
     """Chunk a single :class:`IngestionDocument` into :class:`TextChunk` objects.
 
