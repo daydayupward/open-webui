@@ -131,6 +131,56 @@
 
 		return fragment ? `${baseUrl}#:~:text=${fragment}` : baseUrl;
 	};
+	import { tick } from 'svelte';
+
+	let fullDocumentContent = null;
+	let isFetchingFullContent = false;
+
+	$: if (show && mergedDocuments.length > 0) {
+		const firstDoc = mergedDocuments[0];
+		if (firstDoc.metadata?.file_id && !fullDocumentContent) {
+			const fetchFullContent = async () => {
+				isFetchingFullContent = true;
+				try {
+					const res = await fetch(`${WEBUI_API_BASE_URL}/files/${firstDoc.metadata.file_id}/data/content`, {
+						headers: {
+							Authorization: `Bearer ${localStorage.token}`
+						}
+					});
+					if (res.ok) {
+						const data = await res.json();
+						fullDocumentContent = data.content;
+						if (fullDocumentContent) {
+							mergedDocuments.forEach((doc, idx) => {
+								const chunkText = doc.document.trim();
+								if (chunkText) {
+									fullDocumentContent = fullDocumentContent.replace(
+										chunkText,
+										`<mark id="citation-chunk-${idx}" class="bg-yellow-200 dark:bg-yellow-900 text-inherit rounded-sm">${chunkText}</mark>`
+									);
+								}
+							});
+						}
+						await tick();
+						setTimeout(() => {
+							const el = document.getElementById('citation-chunk-0');
+							if (el) {
+								el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+							}
+						}, 300);
+					}
+				} catch (e) {
+					console.error('Failed to fetch full content', e);
+				} finally {
+					isFetchingFullContent = false;
+				}
+			};
+			fetchFullContent();
+		}
+	} else if (!show) {
+		fullDocumentContent = null;
+	}
+
 </script>
 
 {#if show}
@@ -198,115 +248,125 @@
 
 		<!-- Body -->
 		<div class="flex-1 overflow-y-auto p-5 scrollbar-thin flex flex-col gap-4">
-			{#each mergedDocuments as document, documentIdx}
-				<div class="flex flex-col w-full gap-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 pb-4 last:pb-0">
-					{#if document.metadata?.parameters}
-						<div>
-							<div class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
-								{$i18n.t('Parameters')}
+			{#if isFetchingFullContent}
+				<div class="flex justify-center items-center h-full">
+					<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+				</div>
+			{:else if fullDocumentContent}
+				<div class="text-sm prose dark:prose-invert markdown-prose-sm min-w-full max-w-full bg-gray-50 dark:bg-gray-850/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800/80 shadow-xs text-left">
+					<Markdown content={fullDocumentContent} id="full-citation" />
+				</div>
+			{:else}
+				{#each mergedDocuments as document, documentIdx}
+					<div class="flex flex-col w-full gap-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 pb-4 last:pb-0">
+						{#if document.metadata?.parameters}
+							<div>
+								<div class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+									{$i18n.t('Parameters')}
+								</div>
+								<Textarea readonly value={JSON.stringify(document.metadata.parameters, null, 2)}
+								></Textarea>
 							</div>
-							<Textarea readonly value={JSON.stringify(document.metadata.parameters, null, 2)}
-							></Textarea>
-						</div>
-					{/if}
+						{/if}
 
-					<div>
-						<div class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2 w-fit mb-2">
-							{#if document.source?.url?.includes('http')}
-								{@const snippetUrl = getTextFragmentUrl(document)}
-								{#if snippetUrl}
-									<a
-										href={snippetUrl}
-										target="_blank"
-										class="underline hover:text-blue-500 dark:hover:text-blue-400"
-										>{$i18n.t('Content')}</a
-									>
+						<div>
+							<div class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2 w-fit mb-2">
+								{#if document.source?.url?.includes('http')}
+									{@const snippetUrl = getTextFragmentUrl(document)}
+									{#if snippetUrl}
+										<a
+											href={snippetUrl}
+											target="_blank"
+											class="underline hover:text-blue-500 dark:hover:text-blue-400"
+											>{$i18n.t('Content')}</a
+										>
+									{:else}
+										{$i18n.t('Content')}
+									{/if}
 								{:else}
 									{$i18n.t('Content')}
 								{/if}
-							{:else}
-								{$i18n.t('Content')}
-							{/if}
 
-							{#if showRelevance && document.distance !== undefined}
-								<Tooltip
-									className="w-fit"
-									content={$i18n.t('Relevance')}
-									placement="top-start"
-									tippyOptions={{ duration: [500, 0] }}
-								>
-									<div class="text-xs dark:text-gray-400 flex items-center gap-2 w-fit">
-										{#if showPercentage}
-											{@const percentage = calculatePercentage(document.distance)}
+								{#if showRelevance && document.distance !== undefined}
+									<Tooltip
+										className="w-fit"
+										content={$i18n.t('Relevance')}
+										placement="top-start"
+										tippyOptions={{ duration: [500, 0] }}
+									>
+										<div class="text-xs dark:text-gray-400 flex items-center gap-2 w-fit">
+											{#if showPercentage}
+												{@const percentage = calculatePercentage(document.distance)}
 
-											{#if typeof percentage === 'number'}
-												<span
-													class={`px-1 rounded-sm font-medium ${getRelevanceColor(percentage)}`}
-												>
-													{percentage.toFixed(2)}%
+												{#if typeof percentage === 'number'}
+													<span
+														class={`px-1 rounded-sm font-medium ${getRelevanceColor(percentage)}`}
+													>
+														{percentage.toFixed(2)}%
+													</span>
+												{/if}
+											{:else if typeof document?.distance === 'number'}
+												<span class="text-gray-500 dark:text-gray-500">
+													({(document?.distance ?? 0).toFixed(4)})
 												</span>
 											{/if}
-										{:else if typeof document?.distance === 'number'}
-											<span class="text-gray-500 dark:text-gray-500">
-												({(document?.distance ?? 0).toFixed(4)})
-											</span>
-										{/if}
-									</div>
-								</Tooltip>
-							{/if}
+										</div>
+									</Tooltip>
+								{/if}
 
-							{#if Number.isInteger(document?.metadata?.page)}
-								<span class="text-xs text-gray-500 dark:text-gray-400">
-									({$i18n.t('page')} {document.metadata.page + 1})
-								</span>
+								{#if Number.isInteger(document?.metadata?.page)}
+									<span class="text-xs text-gray-500 dark:text-gray-400">
+										({$i18n.t('page')} {document.metadata.page + 1})
+									</span>
+								{/if}
+							</div>
+
+							{#if document.metadata?.html}
+								<iframe
+									class="w-full border border-gray-200 dark:border-gray-800 h-96 rounded-lg"
+									sandbox="allow-scripts allow-forms{($settings?.iframeSandboxAllowSameOrigin ??
+									false)
+										? ' allow-same-origin'
+										: ''}"
+									srcdoc={injectCsp(document.document, $config?.ui?.iframe_csp ?? '')}
+									title={$i18n.t('Content')}
+								></iframe>
+							{:else}
+								{@const rawContent = document.document.trim().replace(/\n\n+/g, '\n\n')}
+								{@const isTruncated =
+									($settings?.renderMarkdownInPreviews ?? true) &&
+									rawContent.length > CONTENT_PREVIEW_LIMIT &&
+									!expandedDocs.has(documentIdx)}
+								{#if $settings?.renderMarkdownInPreviews ?? true}
+									<div class="text-sm prose dark:prose-invert markdown-prose-sm min-w-full max-w-full bg-gray-50 dark:bg-gray-850/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800/80 shadow-xs text-left">
+										<Markdown
+											content={isTruncated
+												? rawContent.slice(0, CONTENT_PREVIEW_LIMIT)
+												: rawContent}
+											id="citation-{documentIdx}"
+										/>
+									</div>
+									{#if isTruncated}
+										<button
+											class="mt-2 text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition cursor-pointer"
+											on:click={() => {
+												expandedDocs.add(documentIdx);
+												expandedDocs = expandedDocs;
+											}}
+										>
+											{$i18n.t('Show all ({{COUNT}} characters)', {
+												COUNT: rawContent.length.toLocaleString()
+											})}
+										</button>
+									{/if}
+								{:else}
+									<pre class="text-sm dark:text-gray-400 bg-gray-50 dark:bg-gray-850/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800 overflow-x-auto whitespace-pre-line font-mono text-left">{rawContent}</pre>
+								{/if}
 							{/if}
 						</div>
-
-						{#if document.metadata?.html}
-							<iframe
-								class="w-full border border-gray-200 dark:border-gray-800 h-96 rounded-lg"
-								sandbox="allow-scripts allow-forms{($settings?.iframeSandboxAllowSameOrigin ??
-								false)
-									? ' allow-same-origin'
-									: ''}"
-								srcdoc={injectCsp(document.document, $config?.ui?.iframe_csp ?? '')}
-								title={$i18n.t('Content')}
-							></iframe>
-						{:else}
-							{@const rawContent = document.document.trim().replace(/\n\n+/g, '\n\n')}
-							{@const isTruncated =
-								($settings?.renderMarkdownInPreviews ?? true) &&
-								rawContent.length > CONTENT_PREVIEW_LIMIT &&
-								!expandedDocs.has(documentIdx)}
-							{#if $settings?.renderMarkdownInPreviews ?? true}
-								<div class="text-sm prose dark:prose-invert markdown-prose-sm min-w-full max-w-full bg-gray-50 dark:bg-gray-850/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800/80 shadow-xs text-left">
-									<Markdown
-										content={isTruncated
-											? rawContent.slice(0, CONTENT_PREVIEW_LIMIT)
-											: rawContent}
-										id="citation-{documentIdx}"
-									/>
-								</div>
-								{#if isTruncated}
-									<button
-										class="mt-2 text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition cursor-pointer"
-										on:click={() => {
-											expandedDocs.add(documentIdx);
-											expandedDocs = expandedDocs;
-										}}
-									>
-										{$i18n.t('Show all ({{COUNT}} characters)', {
-											COUNT: rawContent.length.toLocaleString()
-										})}
-									</button>
-								{/if}
-							{:else}
-								<pre class="text-sm dark:text-gray-400 bg-gray-50 dark:bg-gray-850/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800 overflow-x-auto whitespace-pre-line font-mono text-left">{rawContent}</pre>
-							{/if}
-						{/if}
 					</div>
-				</div>
-			{/each}
+				{/each}
+			{/if}
 		</div>
 	</div>
 {/if}
