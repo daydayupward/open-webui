@@ -13,6 +13,7 @@ import hashlib
 import logging
 import re
 from typing import Any, Dict, List, Optional
+import tiktoken
 
 from pydantic import BaseModel, Field
 
@@ -150,13 +151,14 @@ def _generate_chunk_id(doc: IngestionDocument, position: int) -> str:
 
 def _split_long_paragraph(
     text: str,
-    max_chars: int,
+    max_tokens: int,
+    encoder: tiktoken.Encoding,
 ) -> List[str]:
-    """Split a paragraph that exceeds *max_chars* into sub-chunks on sentence
-    boundaries.  Falls back to hard character split if no sentence boundary is
+    """Split a paragraph that exceeds *max_tokens* into sub-chunks on sentence
+    boundaries.  Falls back to hard token split if no sentence boundary is
     found within the limit.
     """
-    if len(text) <= max_chars:
+    if len(encoder.encode(text)) <= max_tokens:
         return [text]
 
     # Try to split on sentence boundaries (. ! ? followed by space or end)
@@ -167,16 +169,17 @@ def _split_long_paragraph(
     current = ""
     for sent in sentences:
         candidate = f"{current} {sent}".strip() if current else sent
-        if len(candidate) <= max_chars:
+        if len(encoder.encode(candidate)) <= max_tokens:
             current = candidate
         else:
             if current:
                 chunks.append(current)
-            # If a single sentence is still too long, hard-split it
-            while len(sent) > max_chars:
-                chunks.append(sent[:max_chars])
-                sent = sent[max_chars:]
-            current = sent
+            # If a single sentence is still too long, hard-split it by tokens
+            sent_tokens = encoder.encode(sent)
+            while len(sent_tokens) > max_tokens:
+                chunks.append(encoder.decode(sent_tokens[:max_tokens]))
+                sent_tokens = sent_tokens[max_tokens:]
+            current = encoder.decode(sent_tokens)
     if current:
         chunks.append(current)
 
@@ -185,26 +188,26 @@ def _split_long_paragraph(
 
 def chunk_document(
     doc: IngestionDocument,
-    max_chunk_chars: int = 2000,
-    overlap_chars: int = 500,
+    max_chunk_tokens: int = 2000,
+    overlap_tokens: int = 500,
 ) -> List[TextChunk]:
     """Chunk a single :class:`IngestionDocument` into :class:`TextChunk` objects.
 
     The algorithm:
 
     1. Classify the document text into *header*, *table*, and *paragraph* blocks.
-    2. Each block becomes one or more chunks, subject to *max_chunk_chars*.
+    2. Each block becomes one or more chunks, subject to *max_chunk_tokens*.
     3. Tables are **never** split mid-row.  If a table exceeds the limit it is
        kept as a single oversized chunk (logged as a warning).
     4. Paragraphs that exceed the limit are split on sentence boundaries.
-    5. Optionally, *overlap_chars* characters of context from the previous chunk
+    5. Optionally, *overlap_tokens* tokens of context from the previous chunk
        are prepended to the next chunk.
 
     Args:
         doc: The source document.
-        max_chunk_chars: Target maximum characters per chunk.  Hard tables may
+        max_chunk_tokens: Target maximum tokens per chunk.  Hard tables may
             exceed this.
-        overlap_chars: Number of trailing characters from the previous chunk to
+        overlap_tokens: Number of trailing tokens from the previous chunk to
             prepend to the next chunk (useful for retrieval context).
 
     Returns:
@@ -220,6 +223,11 @@ def chunk_document(
     # Build preliminary chunk texts
     raw_chunks: List[Dict[str, Any]] = []  # {"text": str, "section": str|None}
 
+    try:
+        encoder = tiktoken.encoding_for_model("gpt-4o")
+    except KeyError:
+        encoder = tiktoken.get_encoding("cl100k_base")
+
     for block in blocks:
         btype = block["type"]
         btext = block["text"]
@@ -230,27 +238,28 @@ def chunk_document(
             raw_chunks.append({"text": btext, "section": section})
 
         elif btype == "table":
-            if len(btext) > max_chunk_chars:
+            if len(encoder.encode(btext)) > max_chunk_tokens:
                 logger.warning(
-                    "Table in section %r exceeds max_chunk_chars (%d > %d); "
+                    "Table in section %r exceeds max_chunk_tokens (%d > %d); "
                     "keeping as single chunk to preserve structure.",
                     section,
-                    len(btext),
-                    max_chunk_chars,
+                    len(encoder.encode(btext)),
+                    max_chunk_tokens,
                 )
             raw_chunks.append({"text": btext, "section": section})
 
         else:  # paragraph
-            sub_parts = _split_long_paragraph(btext, max_chunk_chars)
+            sub_parts = _split_long_paragraph(btext, max_chunk_tokens, encoder)
             for part in sub_parts:
                 raw_chunks.append({"text": part, "section": section})
 
-    # Apply overlap: prepend trailing chars from previous chunk
-    if overlap_chars > 0 and len(raw_chunks) > 1:
+    # Apply overlap: prepend trailing tokens from previous chunk
+    if overlap_tokens > 0 and len(raw_chunks) > 1:
         overlapped: List[Dict[str, Any]] = [raw_chunks[0]]
         for idx in range(1, len(raw_chunks)):
             prev_text = raw_chunks[idx - 1]["text"]
-            prefix = prev_text[-overlap_chars:]
+            prev_tokens = encoder.encode(prev_text)
+            prefix = encoder.decode(prev_tokens[-overlap_tokens:]) if len(prev_tokens) > overlap_tokens else prev_text
             overlapped.append(
                 {
                     "text": f"{prefix} ... {raw_chunks[idx]['text']}",
@@ -280,22 +289,22 @@ def chunk_document(
 
 def chunk_documents(
     docs: List[IngestionDocument],
-    max_chunk_chars: int = 1000,
-    overlap_chars: int = 0,
+    max_chunk_tokens: int = 2000,
+    overlap_tokens: int = 500,
 ) -> List[TextChunk]:
     """Chunk a list of documents and return a flat list of chunks.
 
     Args:
         docs: Documents to chunk.
-        max_chunk_chars: Target maximum characters per chunk.
-        overlap_chars: Characters of overlap between consecutive chunks.
+        max_chunk_tokens: Target maximum tokens per chunk.
+        overlap_tokens: Tokens of overlap between consecutive chunks.
 
     Returns:
         A flat list of all chunks across all documents.
     """
     all_chunks: List[TextChunk] = []
     for doc in docs:
-        all_chunks.extend(chunk_document(doc, max_chunk_chars, overlap_chars))
+        all_chunks.extend(chunk_document(doc, max_chunk_tokens, overlap_tokens))
     logger.info(
         "Produced %d chunks from %d documents", len(all_chunks), len(docs)
     )

@@ -1385,7 +1385,7 @@ RAG_EXTERNAL_RERANKER_TIMEOUT = ConfigVar(
 RAG_TEXT_SPLITTER = ConfigVar(
     'RAG_TEXT_SPLITTER',
     'rag.text_splitter',
-    os.getenv('RAG_TEXT_SPLITTER', ''),
+    os.getenv('RAG_TEXT_SPLITTER', 'token'),
 )
 
 ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER = ConfigVar(
