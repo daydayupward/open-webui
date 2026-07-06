@@ -7,6 +7,7 @@
 	import { config } from '$lib/stores';
 	import { getBackendConfig } from '$lib/apis';
 	import Database from './Settings/Database.svelte';
+	import ChipRAGAdmin from './Settings/ChipRAGAdmin.svelte';
 
 	import General from './Settings/General.svelte';
 	import Pipelines from './Settings/Pipelines.svelte';
@@ -48,7 +49,8 @@
 			'audio',
 			'images',
 			'pipelines',
-			'db'
+			'db',
+			'chip-rag-admin'
 		].includes(tabFromPath)
 			? tabFromPath
 			: 'general';
@@ -158,6 +160,12 @@
 				'docling',
 				'unstructured'
 			]
+		},
+		{
+			id: 'chip-rag-admin',
+			title: 'Chip RAG Admin',
+			route: '/admin/settings/chip-rag-admin',
+			keywords: ['chip', 'rag', 'admin', 'ingestion', 'cleaning', 'indexes', 'traces', 'evaluation']
 		},
 		{
 			id: 'web',
@@ -481,6 +489,19 @@
 								d="m10.933 19.231-7.668-4.13-1.37.739a.75.75 0 0 0 0 1.32l9.75 5.25c.221.12.489.12.71 0l9.75-5.25a.75.75 0 0 0 0-1.32l-1.37-.738-7.668 4.13a2.25 2.25 0 0 1-2.134-.001Z"
 							/>
 						</svg>
+					{:else if tab.id === 'chip-rag-admin'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 16 16"
+							fill="currentColor"
+							class="w-4 h-4"
+						>
+							<path
+								fill-rule="evenodd"
+								d="M5.5 1a.75.75 0 0 1 .75.75V3h3.5V1.75a.75.75 0 0 1 1.5 0V3h.75A2.25 2.25 0 0 1 14.25 5.25v.75h1.25a.75.75 0 0 1 0 1.5h-1.25v1.5h1.25a.75.75 0 0 1 0 1.5h-1.25v.75A2.25 2.25 0 0 1 12 13h-.75v1.25a.75.75 0 0 1-1.5 0V13h-3.5v1.25a.75.75 0 0 1-1.5 0V13H4a2.25 2.25 0 0 1-2.25-2.25v-.75H.5a.75.75 0 0 1 0-1.5h1.25v-1.5H.5a.75.75 0 0 1 0-1.5h1.25v-.75A2.25 2.25 0 0 1 4 3.75h.75V1.75A.75.75 0 0 1 5.5 1ZM4 4.5a.75.75 0 0 0-.75.75v5.5c0 .414.336.75.75.75h8a.75.75 0 0 0 .75-.75v-5.5a.75.75 0 0 0-.75-.75H4Z"
+								clip-rule="evenodd"
+							/>
+						</svg>
 					{:else if tab.id === 'db'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -584,6 +605,8 @@
 					toast.success($i18n.t('Settings saved successfully!'));
 				}}
 			/>
+		{:else if selectedTab === 'chip-rag-admin'}
+			<ChipRAGAdmin />
 		{/if}
 	</div>
 </div>

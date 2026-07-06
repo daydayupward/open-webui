@@ -129,6 +129,10 @@
 	{:else if token.text.trim().match(/^<br\s*\/?>$/i)}
 		<br />
 	{:else}
-		{token.text}
+		{#if html}
+			{@html html}
+		{:else}
+			{token.text}
+		{/if}
 	{/if}
 {/if}

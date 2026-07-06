@@ -61,11 +61,11 @@
 						});
 					}
 				} else {
-					selectedCitation = citations[index];
+					selectedCitation = { ...citations[index], selectedChunkIndex: suffix };
 					showCitationModal = true;
 				}
 			} else {
-				selectedCitation = citations[index];
+				selectedCitation = { ...citations[index], selectedChunkIndex: suffix };
 				showCitationModal = true;
 			}
 		}

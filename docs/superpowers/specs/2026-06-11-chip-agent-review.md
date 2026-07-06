@@ -1,7 +1,7 @@
-# Chip Agent 代码评审报告
+# Jbprag 代码评审报告
 
-> **范围**: `/home/eason/proj/open-webui/chip_agent/` 全部源码 + 测试  
-> **基准**: [设计规范](file:///home/eason/proj/open-webui/docs/superpowers/specs/2026-06-10-chip-agentic-rag-design.md) & [执行计划](file:///home/eason/proj/open-webui/docs/superpowers/plans/2026-06-10-chip-agentic-rag.md)
+> **范围**: `/home/eason/proj/open-webui/jbprag/` 全部源码 + 测试  
+> **基准**: [设计规范](file:///home/eason/proj/open-webui/docs/superpowers/specs/2026-06-10-jbprag-design.md) & [执行计划](file:///home/eason/proj/open-webui/docs/superpowers/plans/2026-06-10-jbprag.md)
 
 ---
 

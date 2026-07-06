@@ -18,25 +18,25 @@ We unified the category definitions between the ingestion/indexing pipeline and 
 
 ### Core File Modifications
 
-#### [metadata_mapper.py](file:///home/eason/proj/open-webui/chip_agent/src/ingestion/metadata_mapper.py)
+#### [metadata_mapper.py](file:///home/eason/proj/open-webui/jbprag/src/ingestion/metadata_mapper.py)
 - Updated `_normalize_category` aliases mapping to support all 9 new categories.
 - Mapped `foundry_doc` / `foundry` to `PDK`.
 - Mapped checklist templates to `Platform_Flow` and checklist results/logs to `Project_Doc`.
 - Mapped retired categories like `general` / `training` to `Literature`.
 
-#### [metadata.py](file:///home/eason/proj/open-webui/chip_agent/src/metadata.py)
+#### [metadata.py](file:///home/eason/proj/open-webui/jbprag/src/metadata.py)
 - Aligned `QueryMetadata` schema category descriptions and `normalize_metadata` mapping logic to be identical to the ingestion mapper.
 
-#### [supervisor_prompt.py](file:///home/eason/proj/open-webui/chip_agent/src/prompts/supervisor_prompt.py)
+#### [supervisor_prompt.py](file:///home/eason/proj/open-webui/jbprag/src/prompts/supervisor_prompt.py)
 - Aligned `SYSTEM_PROMPT` categories schema with the new 9-category taxonomy.
 - Updated metadata extraction rules and few-shot routing examples to accurately extract checklist templates (`Platform_Flow`) versus project checklist results (`Project_Doc`).
 
-#### [supervisor.py](file:///home/eason/proj/open-webui/chip_agent/src/supervisor.py)
+#### [supervisor.py](file:///home/eason/proj/open-webui/jbprag/src/supervisor.py)
 - Changed the default fallback category from `"General"` to `"Literature"`.
 
 ### Ingestion CLI & TSMC Secure Document Detection
 
-#### [ingest_documents.py](file:///home/eason/proj/open-webui/chip_agent/scripts/ingest_documents.py)
+#### [ingest_documents.py](file:///home/eason/proj/open-webui/jbprag/scripts/ingest_documents.py)
 - Updated CLI parser to allow the 9 new category choices.
 - Added support for `--vendor` metadata parameter mapping during ingestion.
 - Added **TSMC Secure Document (TSD) detection**: Read the first 50 bytes of any uploaded `.pdf`. If `%TSD-Header-###%` is matched, it halts and reports a clear description explaining that standard open-source parsers cannot read DRM-protected TSD files directly, giving engineers instructions to decrypt or export to plain text before ingesting.
@@ -44,7 +44,7 @@ We unified the category definitions between the ingestion/indexing pipeline and 
 
 ### Intranet DNS Resolution Bypass
 
-#### [.env](file:///home/eason/proj/open-webui/chip_agent/.env)
+#### [.env](file:///home/eason/proj/open-webui/jbprag/.env)
 - Bypassed WSL2 hostname resolution timeouts for the corporate intranet domain `jmaicloud.jaguarmicro.com` by inspecting active backend connections (`ss -apn`) and updating the API base URL directly to `http://10.1.88.119:8100/v1`.
 
 ---
@@ -53,8 +53,8 @@ We unified the category definitions between the ingestion/indexing pipeline and 
 
 ### Automated Unit Tests
 We updated the test suite in the following files:
-- [test_metadata_mapper.py](file:///home/eason/proj/open-webui/chip_agent/tests/test_metadata_mapper.py): Verified mapping from aliases like `general` to `Literature`, `foundry_doc` to `PDK`, `checklist_template` to `Platform_Flow`, `checklist_result` to `Project_Doc`, `liberty` to `StdCell`, and `memory` to `SRAM`.
-- [test_supervisor.py](file:///home/eason/proj/open-webui/chip_agent/tests/test_supervisor.py): Aligned mock expectations and general fallback assertions with the new taxonomy.
+- [test_metadata_mapper.py](file:///home/eason/proj/open-webui/jbprag/tests/test_metadata_mapper.py): Verified mapping from aliases like `general` to `Literature`, `foundry_doc` to `PDK`, `checklist_template` to `Platform_Flow`, `checklist_result` to `Project_Doc`, `liberty` to `StdCell`, and `memory` to `SRAM`.
+- [test_supervisor.py](file:///home/eason/proj/open-webui/jbprag/tests/test_supervisor.py): Aligned mock expectations and general fallback assertions with the new taxonomy.
 
 All **209 unit tests** compiled, ran, and passed successfully inside the WSL environment.
 
@@ -82,8 +82,8 @@ All **209 unit tests** compiled, ran, and passed successfully inside the WSL env
 When the query contains the platform name "JBP" (JaguarMicro Backend Platform), the supervisor metadata extractor parses `"JBP"` as a `project_id`. Because `project_id` filtering was unconditionally applied, queries on platform guides like `jbp_pnr_ug.md` (which have category `Platform_Flow` and `project_id = null`) matched 0 chunks.
 
 ### Fix Implemented
-1. **Project ID Normalization**: Added rules to `normalize_metadata` in [src/metadata.py](file:///home/eason/proj/open-webui/chip_agent/src/metadata.py) to map platform names (e.g. `"jbp"` case-insensitive) to `None`.
-2. **Conditional Project Filtering**: Modified `_build_filter` in [src/retrieval/project_retriever.py](file:///home/eason/proj/open-webui/chip_agent/src/retrieval/project_retriever.py) to only apply the SQL metadata `project_id` filter when the query specifically targets project-specific documents (`Project_Doc`) by checking if `db_cats == ["Project_Doc"]`. General and platform documents (like `Platform_Flow` or `PDK`) remain project-independent and are correctly matched even when the query contains metadata for a project. Also added `"project_id"` to `EXCLUDED_KEYS` to prevent it from being automatically copied from metadata.
+1. **Project ID Normalization**: Added rules to `normalize_metadata` in [src/metadata.py](file:///home/eason/proj/open-webui/jbprag/src/metadata.py) to map platform names (e.g. `"jbp"` case-insensitive) to `None`.
+2. **Conditional Project Filtering**: Modified `_build_filter` in [src/retrieval/project_retriever.py](file:///home/eason/proj/open-webui/jbprag/src/retrieval/project_retriever.py) to only apply the SQL metadata `project_id` filter when the query specifically targets project-specific documents (`Project_Doc`) by checking if `db_cats == ["Project_Doc"]`. General and platform documents (like `Platform_Flow` or `PDK`) remain project-independent and are correctly matched even when the query contains metadata for a project. Also added `"project_id"` to `EXCLUDED_KEYS` to prevent it from being automatically copied from metadata.
 
 ### Verification Outcome
 * Created and ran a scratch test `test_jbp_query.py` confirming that `jbp中 place and route 执行的步骤和流程图` retrieves 3 relevant chunks from the database instead of 0.
