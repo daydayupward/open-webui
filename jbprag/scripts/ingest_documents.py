@@ -229,8 +229,23 @@ def process_file(file_path: Path, args) -> Optional[List]:
         elif suffix == ".pdf":
             try:
                 import pymupdf4llm
-                print(f"Converting PDF document via PyMuPDF4LLM: {target_path.name}...")
-                text = pymupdf4llm.to_markdown(str(target_path.absolute()))
+                import tempfile
+                import shutil
+                
+                temp_img_dir = Path(tempfile.mkdtemp(prefix="pdf_images_"))
+                try:
+                    print(f"Converting PDF document via PyMuPDF4LLM: {target_path.name}...")
+                    text = pymupdf4llm.to_markdown(
+                        str(target_path.absolute()),
+                        write_images=True,
+                        image_path=str(temp_img_dir.absolute()),
+                        image_format="png"
+                    )
+                    # Process extracted images with VLM & copy them to static directory
+                    text = process_markdown_images(text, temp_img_dir, args.category)
+                finally:
+                    if temp_img_dir.exists():
+                        shutil.rmtree(temp_img_dir)
             except ImportError:
                 print("Warning: 'pymupdf4llm' is not installed. Falling back to MarkItDown for PDF.")
                 from markitdown import MarkItDown

@@ -385,8 +385,23 @@ async def ingest_document_task(doc_id: str, filepath: Path, metadata: Dict[str, 
         elif suffix == ".pdf":
             try:
                 import pymupdf4llm
-                logger.info("Converting PDF document via PyMuPDF4LLM: %s", target_path.name)
-                text = pymupdf4llm.to_markdown(str(target_path.absolute()))
+                import tempfile
+                import shutil
+                
+                temp_img_dir = Path(tempfile.mkdtemp(prefix="pdf_images_"))
+                try:
+                    logger.info("Converting PDF document via PyMuPDF4LLM: %s", target_path.name)
+                    text = pymupdf4llm.to_markdown(
+                        str(target_path.absolute()),
+                        write_images=True,
+                        image_path=str(temp_img_dir.absolute()),
+                        image_format="png"
+                    )
+                    # Process extracted images with VLM & copy them to static directory
+                    text = process_markdown_images(text, temp_img_dir, metadata["category"])
+                finally:
+                    if temp_img_dir.exists():
+                        shutil.rmtree(temp_img_dir)
             except ImportError:
                 logger.warning("pymupdf4llm is not installed, falling back to MarkItDown")
                 from markitdown import MarkItDown

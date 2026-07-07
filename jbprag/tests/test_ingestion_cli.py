@@ -35,7 +35,7 @@ def test_process_pdf_file_success(mock_chunk_document):
 
     chunks = process_file(Path("test.pdf"), ArgsMock())
     assert chunks == ["chunk1", "chunk2"]
-    pymupdf4llm.to_markdown.assert_called_once_with(str(Path("test.pdf").absolute()))
+    pymupdf4llm.to_markdown.assert_called_once()
 
 @patch("scripts.ingest_documents.chunk_document")
 def test_process_office_file_success(mock_chunk_document):

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     VISUAL_MODEL: str = "gpt-image-2"
     
     # Comma-separated categories to extract and describe images for
-    IMAGE_INGESTION_CATEGORIES: str = "PDK,StdCell,SRAM,IP,Platform_Flow"
+    IMAGE_INGESTION_CATEGORIES: str = "PDK,StdCell,SRAM,IP,Platform_Flow,EDA"
     
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/jbpdoc"
 
