@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     OPENAI_API_BASE_URL: str = "http://jmaicloud.jaguarmicro.com:8100/v1"
     OPENAI_API_KEY: str = Field(..., description="OpenAI API Key")
 
-    LLM_MODEL: str = "deepseek-v4-flash"
+    LLM_MODEL: str = "DeepSeek-V4-Flash"
     EMBEDDING_MODEL: str = "bge-m3"
     RERANK_MODEL: str = "qwen3-reranker-8b"
     
