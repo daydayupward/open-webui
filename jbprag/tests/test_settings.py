@@ -12,7 +12,7 @@ async def test_settings_defaults():
         assert settings.LLM_MODEL == "deepseek-v4-flash"
         assert settings.EMBEDDING_MODEL == "bge-m3"
         assert settings.RERANK_MODEL == "qwen3-reranker-8b"
-        assert settings.DATABASE_URL == "postgresql+psycopg://postgres:postgres@localhost:5432/chip_design"
+        assert settings.DATABASE_URL == "postgresql+psycopg://postgres:postgres@localhost:5432/jbpdoc"
         assert settings.rerank_base_url == "http://jmaicloud.jaguarmicro.com:8100/v1"
         assert settings.rerank_api_key == "gpustack_8a84577e7871ac6c_2c3d4ef8e376a5d2fca5ceb8e1cc4221"
 

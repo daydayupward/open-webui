@@ -14,7 +14,7 @@
 docker run --name pgvector \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=chip_design \
+  -e POSTGRES_DB=jbpdoc \
   -p 5432:5432 \
   -d pgvector/pgvector:pg16
 ```
@@ -29,11 +29,28 @@ docker run --name pgvector \
    ```bash
    sudo -u postgres psql
    # 在 psql 控制台中执行：
-   CREATE DATABASE chip_design;
-   \c chip_design
+   CREATE DATABASE jbpdoc;
+   \c jbpdoc
    CREATE EXTENSION IF NOT EXISTS vector;
    \q
    ```
+
+### 方式三：清理/删除原有的旧数据与数据库 (可选)
+如果您需要清理之前的旧数据或删除旧数据库，可以使用以下命令：
+* **删除旧的 Docker 容器**（彻底清空）：
+  ```bash
+  docker stop pgvector
+  docker rm pgvector
+  ```
+* **手动连接 Postgres 删除原有的 `chip_design` 数据库**：
+  ```bash
+  sudo -u postgres psql
+  # 在控制台中断开所有旧连接并删除数据库：
+  REVOKE CONNECT ON DATABASE chip_design FROM public;
+  SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE datname = 'chip_design';
+  DROP DATABASE chip_design;
+  \q
+  ```
 
 ---
 
@@ -53,7 +70,7 @@ docker run --name pgvector \
    ```
 3. 检查 `.env` 文件中的配置，确保数据库连接串正确：
    ```env
-   DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/chip_design
+   DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/jbpdoc
    OPENAI_API_KEY=gpustack_your_key_here
    OPENAI_API_BASE_URL=http://10.1.88.119:8100/v1
    # 视觉模型配置

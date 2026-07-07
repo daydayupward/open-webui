@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # Comma-separated categories to extract and describe images for
     IMAGE_INGESTION_CATEGORIES: str = "PDK,StdCell,SRAM,IP,Platform_Flow"
     
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/chip_design"
+    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/jbpdoc"
 
     @property
     def rerank_base_url(self) -> str:

@@ -1,7 +1,7 @@
 import psycopg
 import sys
 
-db_url = 'postgresql://postgres:postgres@localhost:5432/chip_design'
+db_url = 'postgresql://postgres:postgres@localhost:5432/jbpdoc'
 
 def cleanup():
     try:
