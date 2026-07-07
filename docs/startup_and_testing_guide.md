@@ -61,21 +61,56 @@ docker run --name pgvector \
 
 ---
 
-## 2. 准备、注入样本数据 (Embedding Data Setup)
+## 2. 创建 Python 虚拟环境 (Virtual Environments Setup)
+
+本系统包含两个独立的 Python 服务：Open WebUI 后端与 ChipRAG 代理（jbprag）。它们需要分别创建并安装对应的虚拟环境。
+
+### 2.1 创建 ChipRAG 代理环境 (jbprag)
+在 `jbprag` 目录下创建并激活 `.venv2` 虚拟环境，并安装所需库：
+```bash
+# 进入 jbprag 目录
+cd /home/eason/proj/open-webui/jbprag
+
+# 创建虚拟环境
+python3 -m venv .venv2
+
+# 激活虚拟环境
+source .venv2/bin/activate
+
+# 升级 pip 并安装依赖
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 2.2 创建 Open WebUI 后端环境 (backend)
+在 `backend` 目录下创建并激活 `.venv` 虚拟环境，并安装依赖包：
+```bash
+# 进入 backend 目录
+cd /home/eason/proj/open-webui/backend
+
+# 创建虚拟环境
+python3 -m venv .venv
+
+# 激活虚拟环境
+source .venv/bin/activate
+
+# 升级 pip 并安装依赖
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+---
+
+## 3. 准备、注入样本数据 (Embedding Data Setup)
 
 我们将使用内置的种子数据对向量数据库及指标数据库进行初始化。
 
-1. 进入 `jbprag` 目录：
+1. 进入 `jbprag` 目录并激活环境：
    ```bash
-   cd jbprag
-   ```
-2. 确保已创建虚拟环境并安装所需依赖包：
-   ```bash
-   # 如果没有虚拟环境，执行创建：python3 -m venv .venv2
+   cd /home/eason/proj/open-webui/jbprag
    source .venv2/bin/activate
-   pip install -r requirements.txt
    ```
-3. 检查 `.env` 文件中的配置，确保数据库连接串正确：
+2. 检查 `.env` 文件中的配置，确保数据库连接串正确：
    ```env
    DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/jbpdoc
    OPENAI_API_KEY=gpustack_your_key_here
@@ -85,18 +120,18 @@ docker run --name pgvector \
    VISUAL_API_KEY=your_key_here
    VISUAL_MODEL=gpt-5.4
    ```
-4. 执行**数据注入脚本**，一键灌入 PDK 规则、EDA 手册、项目文档和 PPA SQL 指标：
+3. 执行**数据注入脚本**，一键灌入 PDK 规则、EDA 手册、项目文档和 PPA SQL 指标：
    ```bash
    python3 scripts/seed_dev_data.py
    ```
-5. 运行 pytest 确认全部后端组件与数据库通路运行正常：
+4. 运行 pytest 确认全部后端组件与数据库通路运行正常：
    ```bash
    python3 -m pytest tests/
    ```
 
 ---
 
-## 3. 拉起 RAG 代理服务 (jbprag backend)
+## 4. 拉起 RAG 代理服务 (jbprag backend)
 
 在激活的虚拟环境下启动 `jbprag` 的 FastAPI 服务（监听 8000 端口）：
 ```bash
@@ -107,7 +142,7 @@ uvicorn src.main:app --port 8000 --host 0.0.0.0 --reload
 
 ---
 
-## 4. 启动 Open WebUI 服务
+## 5. 启动 Open WebUI 服务
 
 Open WebUI 采取前后端分离架构，开发调试时需要分别启动 Python 后端与 Vite 开发环境。
 
@@ -133,7 +168,7 @@ Open WebUI 采取前后端分离架构，开发调试时需要分别启动 Pytho
 
 ---
 
-## 5. 前端功能测试与联调流程
+## 6. 前端功能测试与联调流程
 
 服务拉起后，在浏览器中访问 **`http://localhost:5173`** 登录系统，执行以下验证流：
 
