@@ -376,11 +376,32 @@ async def ingest_document_task(doc_id: str, filepath: Path, metadata: Dict[str, 
                 temp_pdf_path = None
 
         # Conversion
-        if filepath.suffix.lower() == ".md":
+        suffix = filepath.suffix.lower()
+        if suffix in (".md", ".txt"):
             with open(filepath, "r", encoding="utf-8") as f:
                 text = f.read()
-            text = process_markdown_images(text, filepath.parent, metadata["category"])
+            if suffix == ".md":
+                text = process_markdown_images(text, filepath.parent, metadata["category"])
+        elif suffix == ".pdf":
+            try:
+                import pymupdf4llm
+                logger.info("Converting PDF document via PyMuPDF4LLM: %s", target_path.name)
+                text = pymupdf4llm.to_markdown(str(target_path.absolute()))
+            except ImportError:
+                logger.warning("pymupdf4llm is not installed, falling back to MarkItDown")
+                from markitdown import MarkItDown
+                md = MarkItDown()
+                result = md.convert(str(target_path.absolute()))
+                text = result.text_content
+        elif suffix in (".docx", ".xlsx", ".xls", ".pptx", ".html"):
+            from markitdown import MarkItDown
+            md = MarkItDown()
+            logger.info("Converting Office/HTML document via MarkItDown: %s", target_path.name)
+            result = md.convert(str(target_path.absolute()))
+            text = result.text_content
         else:
+            logger.warning("Unsupported file format %s. Trying MarkItDown fallback.", suffix)
+            from markitdown import MarkItDown
             md = MarkItDown()
             result = md.convert(str(target_path.absolute()))
             text = result.text_content

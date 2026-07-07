@@ -219,16 +219,46 @@ def process_file(file_path: Path, args) -> Optional[List]:
                 print(f"Warning: PDF cleaning failed for {file_path.name}, falling back to original file.")
                 temp_pdf_path = None
 
-        if file_path.suffix.lower() == ".md":
-            print(f"Reading Markdown document directly: {file_path.name}...")
+        suffix = file_path.suffix.lower()
+        if suffix in (".md", ".txt"):
+            print(f"Reading text/markdown document directly: {file_path.name}...")
             with open(file_path, "r", encoding="utf-8") as f:
                 text = f.read()
-            text = process_markdown_images(text, file_path.parent, args.category)
-        else:
+            if suffix == ".md":
+                text = process_markdown_images(text, file_path.parent, args.category)
+        elif suffix == ".pdf":
+            try:
+                import pymupdf4llm
+                print(f"Converting PDF document via PyMuPDF4LLM: {target_path.name}...")
+                text = pymupdf4llm.to_markdown(str(target_path.absolute()))
+            except ImportError:
+                print("Warning: 'pymupdf4llm' is not installed. Falling back to MarkItDown for PDF.")
+                from markitdown import MarkItDown
+                md = MarkItDown()
+                result = md.convert(str(target_path.absolute()))
+                text = result.text_content
+        elif suffix in (".docx", ".xlsx", ".xls", ".pptx", ".html"):
+            try:
+                from markitdown import MarkItDown
+            except ImportError:
+                print("Error: 'markitdown' is not installed.", file=sys.stderr)
+                print("Please install it to use this document ingestion script:", file=sys.stderr)
+                print("pip install markitdown", file=sys.stderr)
+                sys.exit(1)
             md = MarkItDown()
-            print(f"Converting document via MarkItDown: {target_path.name}...")
+            print(f"Converting Office/HTML document via MarkItDown: {target_path.name}...")
             result = md.convert(str(target_path.absolute()))
             text = result.text_content
+        else:
+            print(f"Warning: Unsupported file format {suffix} for {file_path.name}. Trying MarkItDown fallback.")
+            try:
+                from markitdown import MarkItDown
+                md = MarkItDown()
+                result = md.convert(str(target_path.absolute()))
+                text = result.text_content
+            except ImportError:
+                print(f"Error: Unsupported format and markitdown not available for {file_path.name}")
+                return None
         
         if getattr(args, "clean", False):
             text = clean_text_content(text, getattr(args, "watermark", None))
