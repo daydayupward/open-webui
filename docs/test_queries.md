@@ -5,7 +5,7 @@
 > **💡 调试启动提示信息 (Default Debug Prompt)**
 > 
 > 在启动或空负载调试时，系统默认提示语为：
-> `I am ready to assist. Please let me know how I can help with your physical design query.I am ready to assist. Please let me know how I can help with your physical design query.`
+> `I am ready to assist. Please let me know how I can help with your physical design query.`
 
 ---
 
