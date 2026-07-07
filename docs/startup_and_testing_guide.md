@@ -26,14 +26,21 @@ docker run --name pgvector \
    sudo service postgresql start
    ```
 2. 登录 postgres 控制台并创建对应数据库及安装 `pgvector` 扩展：
-   ```bash
-   sudo -u postgres psql
-   # 在 psql 控制台中执行：
-   CREATE DATABASE jbpdoc;
-   \c jbpdoc
-   CREATE EXTENSION IF NOT EXISTS vector;
-   \q
-   ```
+   * 首先，在终端中进入 postgres 交互式控制台：
+     ```bash
+     sudo -u postgres psql
+     ```
+   * 然后，在 **psql 控制台** 中依次输入并运行以下指令：
+     ```sql
+     -- 创建数据库
+     CREATE DATABASE jbpdoc;
+     -- 切换至新创建的数据库
+     \c jbpdoc
+     -- 启用 pgvector 向量扩展
+     CREATE EXTENSION IF NOT EXISTS vector;
+     -- 退出 psql 控制台
+     \q
+     ```
 
 ### 方式三：清理/删除原有的旧数据与数据库 (可选)
 如果您需要清理之前的旧数据或删除旧数据库，可以使用以下命令：
