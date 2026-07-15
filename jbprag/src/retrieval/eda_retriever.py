@@ -24,7 +24,7 @@ class EDARetriever(BaseRetriever):
                 
         return db_filter
 
-def retrieve_eda_manuals(query: str, metadata: Dict[str, Any], fetch_k: int = 10, top_k: int = 3) -> Dict[str, Any]:
+def retrieve_eda_manuals(query: str, metadata: Dict[str, Any], fetch_k: int = 50, top_k: int = 10) -> Dict[str, Any]:
     """
     Retrieves EDA reference documents using hard metadata filtering on tool and category,
     followed by vector similarity search and reranking.
@@ -32,7 +32,7 @@ def retrieve_eda_manuals(query: str, metadata: Dict[str, Any], fetch_k: int = 10
     retriever = EDARetriever()
     return retriever.retrieve(query, metadata, fetch_k, top_k)
 
-async def aretrieve_eda_manuals(query: str, metadata: Dict[str, Any], fetch_k: int = 10, top_k: int = 3) -> Dict[str, Any]:
+async def aretrieve_eda_manuals(query: str, metadata: Dict[str, Any], fetch_k: int = 50, top_k: int = 10) -> Dict[str, Any]:
     """
     Retrieves EDA reference documents asynchronously using hard metadata filtering on tool and category,
     followed by vector similarity search and reranking.

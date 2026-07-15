@@ -50,6 +50,7 @@ def _build_document(chunk: TextChunk, meta: ChunkIndexMetadata) -> Document:
             "source": meta.source,
             "section": meta.section,
             "page": meta.page,
+            "parent_text": meta.parent_text,
             "updated_at": meta.updated_at,
         },
     )

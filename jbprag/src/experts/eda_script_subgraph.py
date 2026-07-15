@@ -38,7 +38,10 @@ async def retrieve_node(state: EDASubgraphState) -> dict:
     query = state.get("query", "")
     metadata = state.get("metadata", {})
     
-    current_query = query
+    try:
+        current_query = await rewrite_query(query)
+    except Exception:
+        current_query = query
     max_retries = 2
     relevant_chunks = []
     all_logs = []

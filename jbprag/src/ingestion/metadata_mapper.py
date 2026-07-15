@@ -67,6 +67,7 @@ class ChunkIndexMetadata(BaseModel):
     source: Optional[str] = Field(None, description="Originating file path.")
     section: Optional[str] = Field(None, description="Section header the chunk belongs to.")
     page: Optional[int] = Field(None, description="Page number if available.")
+    parent_text: Optional[str] = Field(None, description="The full parent chunk text.")
     updated_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(),
         description="ISO-8601 UTC timestamp of when this metadata was created.",
@@ -177,6 +178,8 @@ def _normalize_project_id(value: Optional[str]) -> Optional[str]:
         return "Proj_A"
     if "projb" in collapsed or "projectb" in collapsed:
         return "Proj_B"
+    if "jbp" in collapsed:
+        return None
     return value.strip()
 
 
@@ -324,6 +327,7 @@ def merge_metadata(chunk: TextChunk, doc: Optional[IngestionDocument] = None) ->
         source=chunk_meta.source,
         section=chunk_meta.section,
         page=page,
+        parent_text=doc_meta.get("parent_text"),
     )
 
 

@@ -65,7 +65,7 @@ def normalize_metadata(meta: QueryMetadata) -> QueryMetadata:
             meta.project_id = "Proj_A"
         elif "projb" in proj_str or "projectb" in proj_str:
             meta.project_id = "Proj_B"
-        elif proj_str == "jbp":
+        elif "jbp" in proj_str:
             meta.project_id = None
         else:
             meta.project_id = meta.project_id.strip()

@@ -1,7 +1,8 @@
 import time
 import uuid
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
 from src.graph import build_graph
@@ -19,6 +20,16 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+# Allow the Open WebUI frontend (and any localhost) to call our API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(admin_router)
 graph = build_graph()
 
@@ -74,3 +85,68 @@ async def chat_completions(req: ChatRequest):
                 }
             }
         )
+
+
+@app.get("/v1/documents/context")
+async def get_document_context(
+    doc_id: str = Query(..., description="doc_id of the document to fetch"),
+    chunk_text: str = Query(None, description="Chunk text prefix to highlight (first 200 chars)"),
+    collection: str = Query("eda_manuals", description="Vector collection name"),
+):
+    """
+    Return all chunks of a document concatenated, with the queried chunk wrapped
+    in <mark> tags so CitationDrawer can display highlighted context.
+    """
+    import html
+    from src.sql.sql_client import execute_read_query
+
+    try:
+        rows = execute_read_query(
+            """
+            SELECT e.document, e.cmetadata
+            FROM langchain_pg_collection c
+            JOIN langchain_pg_embedding e ON e.collection_id = c.uuid
+            WHERE c.name = %s
+              AND e.cmetadata->>'doc_id' = %s
+            ORDER BY e.cmetadata->>'chunk_id'
+            """,
+            (collection, doc_id),
+            timeout=10.0
+        )
+    except Exception as ex:
+        return JSONResponse(status_code=500, content={"error": str(ex)})
+
+    if not rows:
+        return JSONResponse(status_code=404, content={"error": "Document not found", "doc_id": doc_id})
+
+    # Concatenate all chunks with paragraph breaks
+    full_text = "\n\n".join(row["document"] or "" for row in rows)
+
+    # If a chunk_text hint is provided, wrap that chunk in <mark> tags
+    if chunk_text:
+        needle = chunk_text[:200].strip()
+        idx = full_text.find(needle)
+        if idx >= 0:
+            end_idx = idx + len(needle)
+            chunk_end = full_text.find("\n\n", end_idx)
+            if chunk_end < 0:
+                chunk_end = len(full_text)
+            matched = full_text[idx:chunk_end]
+            safe_matched = html.escape(matched)
+            before = html.escape(full_text[:idx])
+            after = html.escape(full_text[chunk_end:])
+            content = (
+                f'<pre style="white-space:pre-wrap;font-family:inherit">'
+                f'{before}'
+                f'<mark id="citation-chunk-0" class="bg-yellow-200 dark:bg-yellow-900 text-inherit rounded-sm">'
+                f'{safe_matched}'
+                f'</mark>'
+                f'{after}'
+                f'</pre>'
+            )
+        else:
+            content = f'<pre style="white-space:pre-wrap;font-family:inherit">{html.escape(full_text)}</pre>'
+    else:
+        content = f'<pre style="white-space:pre-wrap;font-family:inherit">{html.escape(full_text)}</pre>'
+
+    return {"content": content, "chunk_count": len(rows)}

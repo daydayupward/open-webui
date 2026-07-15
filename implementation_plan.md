@@ -1,57 +1,37 @@
-# 多模态 RAG (MM-RAG) 图片上传与 Tag 提取功能 (v0.2) 实施计划
+# RAG 模块无返回数据问题修复计划
 
-本计划旨在完成用户要求的多模态 RAG (v0.2) 核心功能：当用户在界面上传图片或截图时，系统能够接入视觉大模型 (VLM)，自动对图片进行分析、识别报错或图示细节（提取 Image Tag），并无缝对接到后续的向量检索（Screenshot-to-DRC RAG）和最终的文本/图文回答生成流程中。
+当测试 "what is sta" 等通用知识/文献类问题时，RAG 系统返回 "No matching data..."，表明检索模块未能获取到有效的文档片段。
 
-## User Review Required
+完整的实施方案已经直接输出至项目工作区，请点击下方链接直接在编辑器中阅读：
 
 > [!IMPORTANT]
-> 1. **大模型兼容性依赖**: 开启此功能后，负责提取和生成的 LLM 必须支持多模态请求。当前系统配置了 `get_visual_llm`，我们将确保在检测到用户发送图片时，Supervisor 自动切换到视觉模型（如 `gpt-image2`）来提取 Tag。
-> 2. **数据结构变更**: 现有的 `api_models.py` 假设用户的 `content` 只是一个字符串。我们必须将其变更为 `Union[str, List[Dict[str, Any]]]` 才能兼容 OpenAI 的多模态协议。
+> **工作区详细方案路径**：[2026-07-07-rag-bugfix-plan.md](file:///home/eason/proj/open-webui/docs/superpowers/plans/2026-07-07-rag-bugfix-plan.md)
 
-## Open Questions
+---
 
-> [!WARNING]
-> 1. 前端向 `/v1/chat/completions` 发送多模态请求时使用的是标准 OpenAI API 格式（`image_url`），我们确认这样处理并在 Metadata 中注入 `image_tags` 是否符合你的预期？
+## 方案概要
 
-## Proposed Changes
+### 1. 根本原因
+* 通用概念问题（如 STA）被 Supervisor 正确归入 `Literature` 类别，并路由至 `metrics_analyst`。
+* `metrics_subgraph.py` 的 `retrieve_docs_node` 之前被硬编码为仅通过 `project_retriever` 在 `project_docs` 集合中检索。
+* 但 `project_docs` 集合仅有 4 个项目特定 specs 块，不含任何时序分析通用文档。而多达 14 万块的 Cadence Innovus 官方手册则存储在 `eda_manuals` 集合中。
+* 此外，`categories: ["Literature"]` 过滤器与 `eda_manuals` 中的 `EDA` 标签不匹配，导致即使跨集合查询也会被元数据过滤为 0 结果。
 
-### 1. 基础模型升级 (API Models)
+### 2. 修复逻辑
+* **多集合动态分发**：根据 Supervisor 预测的元数据分类，动态分发至 `pdk_rules`、`eda_manuals` 和 `project_docs` 集合中执行检索。例如，`Literature` 会同时并发检索 `project_docs` 与 `eda_manuals` 集合。
+* **元数据类别匹配清洗**：在分发时拷贝并过滤 categories 参数，确保调用各 collection 的检索器时不会因为类别过滤器不匹配而产生 0 结果。
+* **合并与精排**：使用 asyncio 并行检索，将多集合返回的候选 chunks 合并后根据 Reranker 评分倒序排列，取 Top-K 最佳 chunks 送入 LLM 总结。
 
-#### [MODIFY] [api_models.py](file:///home/eason/proj/open-webui/jbprag/src/api_models.py)
-- 将 `ChatMessage` 类中的 `content: str` 修改为 `content: Union[str, List[Dict[str, Any]], Any]`，允许接收多模态消息体。
+---
 
-### 2. 消息流转工具 (Message Utils)
+## 拟修改的文件规划
 
-#### [MODIFY] [message_utils.py](file:///home/eason/proj/open-webui/jbprag/src/message_utils.py)
-- 更新 `openai_to_langchain`：当 `content` 为 List 时，原样将其放入 `HumanMessage(content=...)` 中，保留多模态信息。
-- 新增 `extract_text_from_message(msg: AnyMessage) -> str` 辅助方法：如果消息内容是 List，自动抽取出 `type == "text"` 的部分合并返回，确保无法处理图片的老代码仍能拿到文本。
-- 新增 `has_image_in_messages(messages: List[AnyMessage]) -> bool` 辅助方法，用于快速判断请求是否包含图片。
+### [MODIFY] [metrics_subgraph.py](file:///home/eason/proj/open-webui/jbprag/src/experts/metrics_subgraph.py)
+* 重构 `retrieve_docs_node` 函数，实现并行分发与合并重新精排的逻辑。
 
-### 3. 路由与图片 Tag 提取 (Supervisor)
+---
 
-#### [MODIFY] [supervisor.py](file:///home/eason/proj/open-webui/jbprag/src/supervisor.py)
-- 修改 `arun_supervisor`，增加多模态分支逻辑：
-  - 如果 `has_image_in_messages(all_messages)` 为 True，则动态调用 `get_visual_llm(temperature=0.0)`，否则仍使用普通的 `get_llm()`。
-  - VLM 除了输出原有的 Metadata JSON 外，还需要输出新增的 `image_tags` 字段。
-- 将提取出的 `image_tags` 合并保存到 `state["metadata"]["image_tags"]` 中。
+## 验证计划
 
-#### [MODIFY] [supervisor_prompt.py](file:///home/eason/proj/open-webui/jbprag/src/prompts/supervisor_prompt.py)
-- 在 JSON schema 约束中，为 `metadata` 增加一项 `"image_tags": "string (If the user uploaded an image, provide a detailed description of the design, schematic, or DRC violation shown. Otherwise null.)"`。
-- 在 Prompt 指令中补充要求：如果用户上传了截图，仔细识别界面、提取报错名称、坐标和数值，并将这些信息填入 `image_tags` 作为后续数据库的检索扩充词。
-
-### 4. 检索层适配 (Expert Retrievers)
-
-#### [MODIFY] [pdk_expert.py](file:///home/eason/proj/open-webui/jbprag/src/experts/pdk_expert.py) 
-- 使用 `extract_text_from_message` 来获取用户的纯文本 `query`。
-- 提取 `state["metadata"].get("image_tags")`，如果存在且不为空，则拼接到 `query` 的末尾（例如：`query = query + "\n\n[附图片解析信息用于增强检索]:\n" + image_tags`）。
-- 其他所有专家（如 `eda_script_expert.py`, `metrics_analyst.py`）同步应用该查询文本提取和 Tag 拼接修改。
-
-## Verification Plan
-
-### Automated Tests
-- 编写或更新针对 `api_models.py` 和 `message_utils.py` 的测试用例，确保传入多模态 `List[Dict]` 不会崩溃。
-
-### Manual Verification
-1. 启动服务，发起一次带有 base64 图片或 URL（如截图）的请求。
-2. 确认 `arun_supervisor` 调用了 `gpt-image2`，并在 `metadata` 中正确提取出 `image_tags`。
-3. 确认拼接了 Tag 的纯文本 `query` 成功被 `pdk_retriever` 消费并用于检索。
+1. **测试脚本验证**：运行 `scratch/test_dispatcher.py` 验证 "What is STA" 能跨集合从 `eda_manuals` 召回正确的 Timing 相关 chunks。
+2. **手动作业联调**：在 Open WebUI 聊天框中提问 "what is sta"，确认能成功返回参考 Cadence 手册 hometown 时序定义和引用的角标。

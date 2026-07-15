@@ -35,7 +35,19 @@ def parse_json_safely(text: str) -> dict:
 async def arun_supervisor(messages: list) -> dict:
     llm = get_llm()
     system_message = SystemMessage(content=SYSTEM_PROMPT)
-    all_messages = [system_message] + messages
+    from langchain_core.messages import AIMessage
+    cleaned_messages = []
+    for m in messages:
+        if m.type == "human":
+            cleaned_messages.append(m)
+        elif m.type == "ai":
+            stripped = m.content.strip()
+            if stripped.startswith("{") or "{" in stripped:
+                cleaned_messages.append(m)
+            else:
+                cleaned_messages.append(AIMessage(content="[Answered by expert node]"))
+                
+    all_messages = [system_message] + cleaned_messages
     
     # Debug log the messages
     logger.info("Supervisor incoming messages: %s", [str(m) for m in all_messages])

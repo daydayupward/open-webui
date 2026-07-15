@@ -22,10 +22,10 @@ class PDKRetriever(BaseRetriever):
                 
         return db_filter
 
-def retrieve_pdk_rules(query: str, metadata: Dict[str, Any], fetch_k: int = 10, top_k: int = 3) -> Dict[str, Any]:
+def retrieve_pdk_rules(query: str, metadata: Dict[str, Any], fetch_k: int = 50, top_k: int = 10) -> Dict[str, Any]:
     retriever = PDKRetriever()
     return retriever.retrieve(query, metadata, fetch_k, top_k)
 
-async def aretrieve_pdk_rules(query: str, metadata: Dict[str, Any], fetch_k: int = 10, top_k: int = 3) -> Dict[str, Any]:
+async def aretrieve_pdk_rules(query: str, metadata: Dict[str, Any], fetch_k: int = 50, top_k: int = 10) -> Dict[str, Any]:
     retriever = PDKRetriever()
     return await retriever.aretrieve(query, metadata, fetch_k, top_k)

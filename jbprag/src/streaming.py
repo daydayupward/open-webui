@@ -34,7 +34,7 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
                             )
                             yield f"data: {json.dumps(chunk_data)}\n\n"
                             chunks_yielded += 1
-            elif event_type == "on_chain_end" and name == "LangGraph":
+            elif event_type == "on_chain_end" and name in ("LangGraph", "__root__"):
                 data = event.get("data", {})
                 output = data.get("output")
                 if isinstance(output, dict):
@@ -46,7 +46,28 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
                             source_name = meta.get("name") or meta.get("source") or "Document"
                             file_id = meta.get("file_id")
                             page = meta.get("page")
-                            
+                            doc_id = meta.get("doc_id")
+                            category = meta.get("category", "eda_manuals")
+                            # Map category to collection name
+                            collection_map = {
+                                "EDA": "eda_manuals",
+                                "PDK": "pdk_rules",
+                                "PROJECT": "project_docs",
+                            }
+                            collection = collection_map.get(category, "eda_manuals")
+
+                            # Build context_url so the frontend can fetch highlighted context
+                            context_url = None
+                            if doc_id:
+                                import urllib.parse
+                                chunk_hint = urllib.parse.quote(page_content[:200], safe="")
+                                context_url = (
+                                    f"http://localhost:8000/v1/documents/context"
+                                    f"?doc_id={doc_id}"
+                                    f"&collection={collection}"
+                                    f"&chunk_text={chunk_hint}"
+                                )
+
                             source_event = {
                                 "event": {
                                     "type": "source",
@@ -61,7 +82,10 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
                                                 "source": file_id or source_name,
                                                 "name": source_name,
                                                 "page": page,
-                                                "file_id": file_id
+                                                "file_id": file_id,
+                                                "doc_id": doc_id,
+                                                "collection": collection,
+                                                "context_url": context_url,
                                             }
                                         ]
                                     }

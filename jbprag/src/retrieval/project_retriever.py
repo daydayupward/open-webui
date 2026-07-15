@@ -42,8 +42,8 @@ def retrieve_project_docs(
     query: str,
     project_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    fetch_k: int = 10,
-    top_k: int = 3
+    fetch_k: int = 50,
+    top_k: int = 10
 ) -> Dict[str, Any]:
     """
     Retrieves project documentation using hard metadata filtering on
@@ -61,8 +61,8 @@ async def aretrieve_project_docs(
     query: str,
     project_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    fetch_k: int = 10,
-    top_k: int = 3
+    fetch_k: int = 50,
+    top_k: int = 10
 ) -> Dict[str, Any]:
     """
     Retrieves project documentation asynchronously using hard metadata filtering on

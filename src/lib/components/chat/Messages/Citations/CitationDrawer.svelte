@@ -222,6 +222,26 @@
 				}
 			};
 			fetchFullContent();
+		} else if (!firstDoc.metadata?.file_id && firstDoc.metadata?.context_url && !fullDocumentContent) {
+			// jbprag source: fetch pre-highlighted context from jbprag API
+			const fetchJbpragContext = async () => {
+				isFetchingFullContent = true;
+				try {
+					const res = await fetch(firstDoc.metadata.context_url);
+					if (res.ok) {
+						const data = await res.json();
+						fullDocumentContent = data.content || null;
+						if (activeTab === 'chunks') {
+							scrollToChunk();
+						}
+					}
+				} catch (e) {
+					console.error('Failed to fetch jbprag context', e);
+				} finally {
+					isFetchingFullContent = false;
+				}
+			};
+			fetchJbpragContext();
 		}
 	} else if (!show) {
 		fullDocumentContent = null;
@@ -325,9 +345,27 @@
 						<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
 					</div>
 				{:else if fullDocumentContent}
-					<div class="text-sm prose dark:prose-invert markdown-prose-sm min-w-full max-w-full bg-gray-50 dark:bg-gray-850/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800/80 shadow-xs text-left">
-						<Markdown content={fullDocumentContent} id="full-citation" />
-					</div>
+					{#if fullDocumentContent.startsWith('<pre')}
+						<!-- jbprag pre-highlighted HTML context -->
+						<div class="text-sm font-mono min-w-full max-w-full bg-gray-50 dark:bg-gray-850/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800/80 shadow-xs text-left overflow-x-auto">
+							<style>
+								mark#citation-chunk-0 {
+									background-color: #fef08a;
+									border-radius: 3px;
+									padding: 0 2px;
+									scroll-margin-top: 80px;
+								}
+								:global(.dark) mark#citation-chunk-0 {
+									background-color: #713f12;
+								}
+							</style>
+							{@html fullDocumentContent}
+						</div>
+					{:else}
+						<div class="text-sm prose dark:prose-invert markdown-prose-sm min-w-full max-w-full bg-gray-50 dark:bg-gray-850/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800/80 shadow-xs text-left">
+							<Markdown content={fullDocumentContent} id="full-citation" />
+						</div>
+					{/if}
 				{:else}
 					{#each mergedDocuments as document, documentIdx}
 						<div class="flex flex-col w-full gap-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 pb-4 last:pb-0">

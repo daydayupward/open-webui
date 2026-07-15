@@ -204,20 +204,75 @@ async def execute_sql_node(state: MetricsSubgraphState) -> dict:
 
 
 async def retrieve_docs_node(state: MetricsSubgraphState) -> dict:
-    """Retrieve project documents using project_retriever."""
+    """Retrieve project documents using appropriate retrievers based on categories."""
+    import asyncio
     query = state.get("query", "")
     project_id = state.get("project_id", "")
     metadata = state.get("metadata", {})
 
-    current_query = query
+    categories = metadata.get("categories", [])
+    
+    # Map categories to vector store collections
+    targets = set()
+    if not categories:
+        targets = {"project_docs", "pdk_rules", "eda_manuals"}
+    else:
+        for cat in categories:
+            if cat in ("PDK", "StdCell", "SRAM"):
+                targets.add("pdk_rules")
+            elif cat in ("EDA", "Script"):
+                targets.add("eda_manuals")
+            elif cat in ("Project_Doc", "Platform_Flow", "IP", "General"):
+                targets.add("project_docs")
+            elif cat == "Literature":
+                # Literature searches both project documents and EDA manuals
+                targets.add("project_docs")
+                targets.add("eda_manuals")
+            else:
+                targets.add("project_docs")
+
+    from src.evaluators import rewrite_query
+    try:
+        current_query = await rewrite_query(query)
+    except Exception:
+        current_query = query
     max_retries = 2
     relevant_chunks = []
     all_logs = []
 
     for i in range(max_retries + 1):
-        retrieval_res = await aretrieve_project_docs(current_query, project_id, metadata=metadata)
-        chunks = retrieval_res.get("chunks", [])
-        all_logs.append(retrieval_res.get("logs", {}))
+        tasks = []
+        if "pdk_rules" in targets:
+            from src.retrieval.pdk_retriever import aretrieve_pdk_rules
+            pdk_meta = metadata.copy()
+            pdk_meta["categories"] = [c for c in categories if c in ("PDK", "StdCell", "SRAM")]
+            tasks.append(aretrieve_pdk_rules(current_query, pdk_meta))
+            
+        if "eda_manuals" in targets:
+            from src.retrieval.eda_retriever import aretrieve_eda_manuals
+            eda_meta = metadata.copy()
+            eda_meta["categories"] = [c for c in categories if c in ("EDA", "Script")]
+            tasks.append(aretrieve_eda_manuals(current_query, eda_meta))
+            
+        if "project_docs" in targets:
+            from src.retrieval.project_retriever import aretrieve_project_docs
+            proj_meta = metadata.copy()
+            proj_meta["categories"] = [c for c in categories if c in ("Project_Doc", "Platform_Flow", "IP", "Literature", "General")]
+            tasks.append(aretrieve_project_docs(current_query, project_id, proj_meta))
+
+        retrieval_results = await asyncio.gather(*tasks)
+
+        # Merge chunks and logs
+        chunks = []
+        for res in retrieval_results:
+            chunks.extend(res.get("chunks", []))
+            all_logs.append(res.get("logs", {}))
+
+        # Sort chunks by score descending
+        chunks.sort(key=lambda x: getattr(x, "score", 0.0) or 0.0, reverse=True)
+        # Limit to top_k chunks
+        top_k = state.get("top_k", 3)
+        chunks = chunks[:top_k]
 
         relevant_chunks = []
         for c in chunks:

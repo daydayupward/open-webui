@@ -186,32 +186,87 @@ def _split_long_paragraph(
     return chunks
 
 
+def merge_into_parent_chunks(
+    blocks: List[Dict[str, Any]],
+    max_parent_tokens: int,
+    overlap_tokens: int,
+    encoder
+) -> List[Dict[str, Any]]:
+    parent_chunks = []
+    current_section = None
+    current_blocks = []
+    current_tokens = 0
+
+    for block in blocks:
+        btext = block["text"]
+        btokens = len(encoder.encode(btext))
+        
+        # Greedy merger: merge blocks until max_parent_tokens is exceeded
+        if current_tokens + btokens > max_parent_tokens and current_blocks:
+            text = "\n\n".join(b["text"] for b in current_blocks)
+            parent_chunks.append({"text": text, "section": current_section})
+            current_blocks = []
+            current_tokens = 0
+            
+        current_blocks.append(block)
+        current_tokens += btokens
+        if block.get("header"):
+            current_section = block["header"]
+
+    if current_blocks:
+        text = "\n\n".join(b["text"] for b in current_blocks)
+        parent_chunks.append({"text": text, "section": current_section})
+
+    # Apply overlap to parent chunks
+    if overlap_tokens > 0 and len(parent_chunks) > 1:
+        overlapped = [parent_chunks[0]]
+        for idx in range(1, len(parent_chunks)):
+            prev_text = parent_chunks[idx - 1]["text"]
+            prev_tokens = encoder.encode(prev_text)
+            prefix = encoder.decode(prev_tokens[-overlap_tokens:]) if len(prev_tokens) > overlap_tokens else prev_text
+            overlapped.append(
+                {
+                    "text": f"{prefix} ... {parent_chunks[idx]['text']}",
+                    "section": parent_chunks[idx]["section"],
+                }
+            )
+        parent_chunks = overlapped
+
+    return parent_chunks
+
+
+def split_parent_into_children(
+    parent_text: str,
+    max_child_tokens: int,
+    child_overlap_tokens: int,
+    encoder
+) -> List[str]:
+    tokens = encoder.encode(parent_text)
+    if len(tokens) <= max_child_tokens:
+        return [parent_text]
+
+    children = []
+    idx = 0
+    while idx < len(tokens):
+        end = min(idx + max_child_tokens, len(tokens))
+        child_text = encoder.decode(tokens[idx:end])
+        children.append(child_text)
+        if end == len(tokens):
+            break
+        idx += (max_child_tokens - child_overlap_tokens)
+    return children
+
+
 def chunk_document(
     doc: IngestionDocument,
     max_chunk_tokens: int = 2000,
     overlap_tokens: int = 500,
 ) -> List[TextChunk]:
-    """Chunk a single :class:`IngestionDocument` into :class:`TextChunk` objects.
-
-    The algorithm:
-
-    1. Classify the document text into *header*, *table*, and *paragraph* blocks.
-    2. Each block becomes one or more chunks, subject to *max_chunk_tokens*.
-    3. Tables are **never** split mid-row.  If a table exceeds the limit it is
-       kept as a single oversized chunk (logged as a warning).
-    4. Paragraphs that exceed the limit are split on sentence boundaries.
-    5. Optionally, *overlap_tokens* tokens of context from the previous chunk
-       are prepended to the next chunk.
-
-    Args:
-        doc: The source document.
-        max_chunk_tokens: Target maximum tokens per chunk.  Hard tables may
-            exceed this.
-        overlap_tokens: Number of trailing tokens from the previous chunk to
-            prepend to the next chunk (useful for retrieval context).
-
-    Returns:
-        A list of :class:`TextChunk` objects.
+    """Chunk a single :class:`IngestionDocument` into parent-child :class:`TextChunk` objects.
+    
+    1. Parent Chunk size is max_chunk_tokens (2000 tokens) with overlap_tokens (500 tokens).
+    2. Child Chunk size is ~300 tokens, embedding parent_text in its metadata.
+    3. Option 2: Image nodes are colocated within their respective parent chunks.
     """
     if not doc.text.strip():
         return []
@@ -220,69 +275,52 @@ def chunk_document(
     if not blocks:
         return []
 
-    # Build preliminary chunk texts
-    raw_chunks: List[Dict[str, Any]] = []  # {"text": str, "section": str|None}
-
     try:
         encoder = tiktoken.encoding_for_model("gpt-4o")
     except KeyError:
         encoder = tiktoken.get_encoding("cl100k_base")
 
+    # Pre-split extremely long blocks to avoid overflowing parent limit
+    pre_split_blocks = []
     for block in blocks:
-        btype = block["type"]
-        btext = block["text"]
-        section = block.get("header")
-
-        if btype == "header":
-            # Headers become their own small chunk (useful for section indexing)
-            raw_chunks.append({"text": btext, "section": section})
-
-        elif btype == "table":
-            if len(encoder.encode(btext)) > max_chunk_tokens:
-                logger.warning(
-                    "Table in section %r exceeds max_chunk_tokens (%d > %d); "
-                    "keeping as single chunk to preserve structure.",
-                    section,
-                    len(encoder.encode(btext)),
-                    max_chunk_tokens,
-                )
-            raw_chunks.append({"text": btext, "section": section})
-
-        else:  # paragraph
-            sub_parts = _split_long_paragraph(btext, max_chunk_tokens, encoder)
+        if block["type"] == "paragraph" and len(encoder.encode(block["text"])) > max_chunk_tokens:
+            sub_parts = _split_long_paragraph(block["text"], max_chunk_tokens, encoder)
             for part in sub_parts:
-                raw_chunks.append({"text": part, "section": section})
+                pre_split_blocks.append({"type": "paragraph", "text": part, "header": block.get("header")})
+        else:
+            pre_split_blocks.append(block)
 
-    # Apply overlap: prepend trailing tokens from previous chunk
-    if overlap_tokens > 0 and len(raw_chunks) > 1:
-        overlapped: List[Dict[str, Any]] = [raw_chunks[0]]
-        for idx in range(1, len(raw_chunks)):
-            prev_text = raw_chunks[idx - 1]["text"]
-            prev_tokens = encoder.encode(prev_text)
-            prefix = encoder.decode(prev_tokens[-overlap_tokens:]) if len(prev_tokens) > overlap_tokens else prev_text
-            overlapped.append(
-                {
-                    "text": f"{prefix} ... {raw_chunks[idx]['text']}",
-                    "section": raw_chunks[idx]["section"],
-                }
-            )
-        raw_chunks = overlapped
+    parent_chunks = merge_into_parent_chunks(pre_split_blocks, max_chunk_tokens, overlap_tokens, encoder)
 
-    # Assign chunk metadata
-    total = len(raw_chunks)
     chunks: List[TextChunk] = []
-    for idx, rc in enumerate(raw_chunks):
+    raw_children = []
+    for rc in parent_chunks:
+        parent_text = rc["text"]
+        # Split parent into children chunks of size 300 tokens, 50 tokens overlap
+        children_texts = split_parent_into_children(parent_text, 300, 50, encoder)
+        for child_text in children_texts:
+            raw_children.append({
+                "child_text": child_text,
+                "parent_text": parent_text,
+                "section": rc["section"]
+            })
+
+    total = len(raw_children)
+    for idx, child_data in enumerate(raw_children):
         chunk_id = _generate_chunk_id(doc, idx)
         meta = ChunkMetadata(
             chunk_id=chunk_id,
             source=doc.source,
             category=doc.metadata.get("category"),
-            section=rc["section"],
+            section=child_data["section"],
             position=idx,
             total_chunks=total,
-            parent_metadata=doc.metadata,
+            parent_metadata={
+                **doc.metadata,
+                "parent_text": child_data["parent_text"]
+            }
         )
-        chunks.append(TextChunk(text=rc["text"], metadata=meta))
+        chunks.append(TextChunk(text=child_data["child_text"], metadata=meta))
 
     return chunks
 

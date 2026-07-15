@@ -35,7 +35,7 @@
 				suffix = output[1];
 			}
 		} else {
-			index = sourceId - 1;
+			index = sourceId;
 		}
 
 		if (citations[index]) {
