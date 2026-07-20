@@ -18,6 +18,10 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
             name = event.get("name")
             
             if event_type == "on_chat_model_stream":
+                tags = event.get("tags", []) or metadata.get("tags", []) or []
+                if "evaluator" in tags or "internal" in tags:
+                    continue
+
                 name = metadata.get("langgraph_node") or event.get("name") or ""
                 allowed_nodes = [
                     ExpertRoute.PDK,
@@ -34,7 +38,7 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
                     chunk = data.get("chunk")
                     if chunk and hasattr(chunk, "content"):
                         content = chunk.content
-                        if content:
+                        if content and "binary_score" not in content and "rewritten_query" not in content:
                             chunk_data = format_openai_chunk(
                                 completion_id=completion_id,
                                 content=content,

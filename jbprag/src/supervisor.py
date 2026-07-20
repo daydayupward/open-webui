@@ -65,7 +65,7 @@ async def arun_supervisor(messages: list) -> dict:
     
     content = ""
     try:
-        response = await llm.ainvoke(all_messages)
+        response = await llm.ainvoke(all_messages, config={"tags": ["evaluator"]})
         content = response.content.strip()
         
         parsed = parse_json_safely(content)

@@ -74,7 +74,7 @@ async def grade_document_relevance(doc_text: str, query: str) -> bool:
         HumanMessage(content=DOC_GRADER_PROMPT.format(document=doc_text, query=query))
     ]
     try:
-        response = await llm.ainvoke(messages)
+        response = await llm.ainvoke(messages, config={"tags": ["evaluator"]})
         parsed = parse_json_safely(response.content)
         score = parsed.get("binary_score", "no").strip().lower()
         logger.info("[Self-RAG Doc Grader] Document graded as relevant: %s", score == "yes")
@@ -92,7 +92,7 @@ async def grade_hallucination(generation: str, docs: list) -> bool:
         HumanMessage(content=HALLUCINATION_GRADER_PROMPT.format(documents=docs_text, generation=generation))
     ]
     try:
-        response = await llm.ainvoke(messages)
+        response = await llm.ainvoke(messages, config={"tags": ["evaluator"]})
         parsed = parse_json_safely(response.content)
         score = parsed.get("binary_score", "no").strip().lower()
         logger.info("[Self-RAG Hallucination Grader] Grounded: %s", score == "yes")
@@ -109,7 +109,7 @@ async def grade_answer_completeness(generation: str, query: str) -> bool:
         HumanMessage(content=ANSWER_GRADER_PROMPT.format(query=query, generation=generation))
     ]
     try:
-        response = await llm.ainvoke(messages)
+        response = await llm.ainvoke(messages, config={"tags": ["evaluator"]})
         parsed = parse_json_safely(response.content)
         score = parsed.get("binary_score", "no").strip().lower()
         logger.info("[Self-RAG Answer Grader] Completeness grade: %s", score == "yes")
@@ -126,7 +126,7 @@ async def rewrite_query(query: str) -> str:
         HumanMessage(content=QUERY_REWRITER_PROMPT.format(query=query))
     ]
     try:
-        response = await llm.ainvoke(messages)
+        response = await llm.ainvoke(messages, config={"tags": ["evaluator"]})
         parsed = parse_json_safely(response.content)
         rewritten = parsed.get("rewritten_query", query)
         logger.info("[Self-RAG Query Rewriter] Rewrote '%s' -> '%s'", query, rewritten)
