@@ -3,6 +3,7 @@ from typing import Optional, List
 
 class QueryMetadata(BaseModel):
     categories: List[str] = Field(default_factory=list, description="List of categories for the query. Valid values: 'PDK', 'StdCell', 'SRAM', 'IP', 'EDA', 'Platform_Flow', 'Project_Doc', 'Script', 'Literature'.")
+    vendor: Optional[str] = Field(None, description="IP/EDA vendor (e.g. 'Cadence', 'Synopsys', 'TSMC', etc.)")
     node: Optional[str] = Field(None, description="Process node (e.g. 'N5', 'N7', etc.)")
     tool: Optional[str] = Field(None, description="EDA tool name (e.g. 'Innovus', 'ICC2', 'Calibre', etc.)")
     project_id: Optional[str] = Field(None, description="Project ID (e.g. 'Proj_A', 'Proj_B', etc.)")
@@ -36,6 +37,21 @@ def normalize_metadata(meta: QueryMetadata) -> QueryMetadata:
                 normalized_cats.append(cat.strip().capitalize())
         # remove duplicates
         meta.categories = list(dict.fromkeys(normalized_cats))
+
+    if meta.vendor:
+        vendor_str = meta.vendor.strip().lower()
+        if vendor_str in ["cadence", "cdns"]:
+            meta.vendor = "Cadence"
+        elif vendor_str in ["synopsys", "snps"]:
+            meta.vendor = "Synopsys"
+        elif vendor_str in ["tsmc"]:
+            meta.vendor = "TSMC"
+        elif vendor_str in ["innosilicon"]:
+            meta.vendor = "Innosilicon"
+        elif vendor_str in ["alphawave"]:
+            meta.vendor = "Alphawave"
+        else:
+            meta.vendor = meta.vendor.strip().capitalize()
             
     if meta.node:
         node_str = meta.node.strip().upper()

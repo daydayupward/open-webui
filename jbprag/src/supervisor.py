@@ -55,6 +55,7 @@ async def arun_supervisor(messages: list) -> dict:
     route = ExpertRoute.FINALIZER
     metadata_dict = {
         "categories": ["Literature"],
+        "vendor": None,
         "node": None,
         "tool": None,
         "project_id": None,
@@ -84,6 +85,7 @@ async def arun_supervisor(messages: list) -> dict:
             
         query_meta = QueryMetadata(
             categories=cats,
+            vendor=raw_meta.get("vendor"),
             node=raw_meta.get("node"),
             tool=raw_meta.get("tool"),
             project_id=raw_meta.get("project_id"),

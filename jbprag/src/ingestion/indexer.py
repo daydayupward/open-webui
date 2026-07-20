@@ -44,6 +44,7 @@ def _build_document(chunk: TextChunk, meta: ChunkIndexMetadata) -> Document:
             "chunk_id": meta.chunk_id,
             "doc_id": meta.doc_id,
             "category": meta.category,
+            "vendor": meta.vendor,
             "node": meta.node,
             "tool": meta.tool,
             "project_id": meta.project_id,

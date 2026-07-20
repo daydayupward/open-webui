@@ -26,6 +26,33 @@ async def finalizer_node(state: AgentState) -> dict:
     if not final_text:
         final_text = "I am ready to assist. Please let me know how I can help with your physical design query."
         
+    retrieved_docs = state.get("retrieved_docs", [])
+    if retrieved_docs and final_text:
+        import re
+        existing_images = set(re.findall(r'!\[.*?\]\((/static/uploads/images/[^\s\)]+)\)', final_text))
+        
+        doc_images = []
+        for doc in retrieved_docs:
+            content = ""
+            if isinstance(doc, dict):
+                content = doc.get("content") or doc.get("page_content") or ""
+            elif hasattr(doc, "page_content"):
+                content = doc.page_content
+                
+            imgs = re.findall(r'!\[.*?\]\((/static/uploads/images/[^\s\)]+)\)', content)
+            for img in imgs:
+                if img not in doc_images and img not in existing_images:
+                    doc_images.append(img)
+                    
+        if doc_images:
+            image_md_blocks = "\n\n**相关图示**:\n" + "\n\n".join([f"![]({img})" for img in doc_images])
+            if "**参考来源**" in final_text:
+                final_text = final_text.replace("**参考来源**", f"{image_md_blocks}\n\n**参考来源**")
+            elif "**相关问题**" in final_text:
+                final_text = final_text.replace("**相关问题**", f"{image_md_blocks}\n\n**相关问题**")
+            else:
+                final_text += f"\n\n{image_md_blocks}"
+                
     return {"final_answer": final_text}
 
 def build_graph():

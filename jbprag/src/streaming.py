@@ -19,7 +19,17 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
             
             if event_type == "on_chat_model_stream":
                 name = metadata.get("langgraph_node") or event.get("name") or ""
-                if name in [ExpertRoute.PDK, ExpertRoute.EDA, "refinement_agent", ExpertRoute.METRICS, "summarize", "summarizer", "text_to_sql", "finalizer"]:
+                allowed_nodes = [
+                    ExpertRoute.PDK,
+                    ExpertRoute.EDA,
+                    ExpertRoute.METRICS,
+                    "generate",
+                    "refine",
+                    "summarize",
+                    "clarify",
+                    "finalizer",
+                ]
+                if name in allowed_nodes:
                     data = event.get("data", {})
                     chunk = data.get("chunk")
                     if chunk and hasattr(chunk, "content"):
@@ -40,26 +50,38 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
                 if isinstance(output, dict):
                     retrieved_docs = output.get("retrieved_docs", [])
                     if retrieved_docs:
+                        sources_list = []
+                        collection_map = {
+                            "EDA": "eda_manuals",
+                            "Script": "eda_manuals",
+                            "Literature": "eda_manuals",
+                            "PDK": "pdk_rules",
+                            "StdCell": "pdk_rules",
+                            "SRAM": "pdk_rules",
+                            "IP": "pdk_rules",
+                            "PROJECT": "project_docs",
+                            "Project_Doc": "project_docs",
+                            "Platform_Flow": "project_docs",
+                        }
+                        
+                        import os
+                        import urllib.parse
+
                         for doc in retrieved_docs:
                             page_content = doc.get("page_content") or doc.get("content") or ""
                             meta = doc.get("metadata", {}) or {}
-                            source_name = meta.get("name") or meta.get("source") or "Document"
+                            raw_source_name = meta.get("name") or meta.get("source") or "Document"
+                            source_name = os.path.basename(raw_source_name) if ("/" in raw_source_name or "\\" in raw_source_name) else raw_source_name
+                            
                             file_id = meta.get("file_id")
                             page = meta.get("page")
                             doc_id = meta.get("doc_id")
                             category = meta.get("category", "eda_manuals")
-                            # Map category to collection name
-                            collection_map = {
-                                "EDA": "eda_manuals",
-                                "PDK": "pdk_rules",
-                                "PROJECT": "project_docs",
-                            }
                             collection = collection_map.get(category, "eda_manuals")
 
-                            # Build context_url so the frontend can fetch highlighted context
+                            # Build context_url so CitationDrawer can fetch highlighted context
                             context_url = None
                             if doc_id:
-                                import urllib.parse
                                 chunk_hint = urllib.parse.quote(page_content[:200], safe="")
                                 context_url = (
                                     f"http://localhost:8000/v1/documents/context"
@@ -68,30 +90,27 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
                                     f"&chunk_text={chunk_hint}"
                                 )
 
-                            source_event = {
-                                "event": {
-                                    "type": "source",
-                                    "data": {
-                                        "source": {
-                                            "name": source_name,
-                                            "id": file_id or source_name
-                                        },
-                                        "document": [page_content],
-                                        "metadata": [
-                                            {
-                                                "source": file_id or source_name,
-                                                "name": source_name,
-                                                "page": page,
-                                                "file_id": file_id,
-                                                "doc_id": doc_id,
-                                                "collection": collection,
-                                                "context_url": context_url,
-                                            }
-                                        ]
+                            sources_list.append({
+                                "source": {
+                                    "name": source_name,
+                                    "id": file_id or source_name
+                                },
+                                "document": [page_content],
+                                "metadata": [
+                                    {
+                                        "source": file_id or source_name,
+                                        "name": source_name,
+                                        "page": page,
+                                        "file_id": file_id,
+                                        "doc_id": doc_id,
+                                        "collection": collection,
+                                        "context_url": context_url,
                                     }
-                                }
-                            }
-                            yield f"data: {json.dumps(source_event)}\n\n"
+                                ]
+                            })
+
+                        if sources_list:
+                            yield f"data: {json.dumps({'sources': sources_list})}\n\n"
 
                     if "final_answer" in output and "route" in output:
                         final_answer = output["final_answer"]
