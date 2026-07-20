@@ -116,16 +116,11 @@
 					}
 				}
 
-				const existingSource = acc.find((item) => item.id === id);
-				if (existingSource) {
-					existingSource.document.push(source.document?.[index] ?? '');
-				} else {
-					acc.push({
-						id: id,
-						name: name,
-						document: [source.document?.[index] ?? '']
-					});
-				}
+				acc.push({
+					id: id,
+					name: name,
+					document: [source.document?.[index] ?? '']
+				});
 			}
 		}
 		sourceIds = acc;

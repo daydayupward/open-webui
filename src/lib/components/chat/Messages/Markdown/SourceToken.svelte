@@ -39,10 +39,11 @@
 	};
 </script>
 
-{#if sourceIds}
+{#if sourceIds && sourceIds.length > 0}
 	{#each token?.ids ?? [] as id, idx (idx)}
 		{@const identifier = token.citationIdentifiers ? token.citationIdentifiers[idx] : id - 1}
-		<Source id={identifier} title={sourceIds[id - 1]} index={id} {onClick} />
+		{@const sourceTitle = sourceIds[id - 1] ?? sourceIds[Math.min(Math.max(0, id - 1), sourceIds.length - 1)]}
+		<Source id={identifier} title={sourceTitle} index={id} {onClick} />
 	{/each}
 {:else}
 	<span>{token.raw}</span>
