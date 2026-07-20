@@ -1,6 +1,6 @@
-# Design Review & Lessons Learned: Chip Agentic RAG
+# Design Review & Lessons Learned: Jbpragic RAG
 
-This document reviews the current MVP implementation of the Chip Backend Design Agentic RAG system against its original specification ([2026-06-10-chip-agentic-rag-design.md](file:///Ubuntu/home/eason/proj/open-webui/docs/superpowers/specs/2026-06-10-chip-agentic-rag-design.md)) and extracts valuable technical experiences.
+This document reviews the current MVP implementation of the Chip Backend Design Agentic RAG system against its original specification ([2026-06-10-jbprag-design.md](file:///Ubuntu/home/eason/proj/open-webui/docs/superpowers/specs/2026-06-10-jbprag-design.md)) and extracts valuable technical experiences.
 
 ---
 
@@ -8,10 +8,10 @@ This document reviews the current MVP implementation of the Chip Backend Design 
 
 | Spec Section | Requirement | Current Status | Notes / Gaps |
 | :--- | :--- | :--- | :--- |
-| **Frontend / API** | OpenAI-compatible `/v1/chat/completions` API endpoint | **Fully Implemented** | Handled in [main.py](file:///Ubuntu/home/eason/proj/open-webui/chip_agent/src/main.py) and verified by end-to-end tests. |
-| **Orchestration** | LangGraph StateGraph with Supervisor Router | **Implemented (MVP)** | [graph.py](file:///Ubuntu/home/eason/proj/open-webui/chip_agent/src/graph.py) contains the graph setup. The router currently routes blindly to the PDK Expert. |
-| **Vector Store** | PostgreSQL + `pgvector` interface | **Implemented** | [vector_store.py](file:///Ubuntu/home/eason/proj/open-webui/chip_agent/src/vector_store.py) encapsulates the LangChain `PGVector` store initialization. |
-| **Sub-Agent: PDK Expert** | Node rules, DRC limitations, SPICE parameters | **Mocked (MVP)** | Returns a mock response in [pdk_expert.py](file:///Ubuntu/home/eason/proj/open-webui/chip_agent/src/experts/pdk_expert.py). Needs database integration. |
+| **Frontend / API** | OpenAI-compatible `/v1/chat/completions` API endpoint | **Fully Implemented** | Handled in [main.py](file:///Ubuntu/home/eason/proj/open-webui/jbprag/src/main.py) and verified by end-to-end tests. |
+| **Orchestration** | LangGraph StateGraph with Supervisor Router | **Implemented (MVP)** | [graph.py](file:///Ubuntu/home/eason/proj/open-webui/jbprag/src/graph.py) contains the graph setup. The router currently routes blindly to the PDK Expert. |
+| **Vector Store** | PostgreSQL + `pgvector` interface | **Implemented** | [vector_store.py](file:///Ubuntu/home/eason/proj/open-webui/jbprag/src/vector_store.py) encapsulates the LangChain `PGVector` store initialization. |
+| **Sub-Agent: PDK Expert** | Node rules, DRC limitations, SPICE parameters | **Mocked (MVP)** | Returns a mock response in [pdk_expert.py](file:///Ubuntu/home/eason/proj/open-webui/jbprag/src/experts/pdk_expert.py). Needs database integration. |
 | **Sub-Agent: EDA Script Expert** | Tool manuals, Tcl/Skill script generator (Agentic loops) | *Not Started* | To be implemented in next phase. |
 | **Sub-Agent: Metrics Analyst** | Mixed (Text-to-SQL + Project Docs RAG) | *Not Started* | To be implemented in next phase. |
 

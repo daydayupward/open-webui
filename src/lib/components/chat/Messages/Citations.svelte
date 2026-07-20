@@ -24,25 +24,32 @@
 	let selectedCitation: any = null;
 
 	export const showSourceModal = (sourceId) => {
-		let index;
+		let index = 0;
 		let suffix = null;
 
 		if (typeof sourceId === 'string') {
 			const output = sourceId.split('#');
-			index = parseInt(output[0]) - 1;
+			const parsed = parseInt(output[0]);
+			index = isNaN(parsed) ? 0 : parsed - 1;
 
 			if (output.length > 1) {
 				suffix = output[1];
 			}
-		} else {
+		} else if (typeof sourceId === 'number') {
 			index = sourceId - 1;
 		}
 
-		if (citations[index]) {
-			console.log('Showing citation modal for:', citations[index]);
+		let targetCitation = citations[index];
+		if (!targetCitation && citations.length > 0) {
+			const validIndex = Math.min(Math.max(0, isNaN(index) ? 0 : index), citations.length - 1);
+			targetCitation = citations[validIndex];
+		}
 
-			if (citations[index]?.source?.embed_url) {
-				const embedUrl = citations[index].source.embed_url;
+		if (targetCitation) {
+			console.log('Showing citation modal for:', targetCitation);
+
+			if (targetCitation?.source?.embed_url) {
+				const embedUrl = targetCitation.source.embed_url;
 				if (embedUrl) {
 					if (readOnly) {
 						// Open in new tab if readOnly
@@ -53,19 +60,19 @@
 						showEmbeds.set(true);
 						embed.set({
 							url: embedUrl,
-							title: citations[index]?.source?.name || 'Embedded Content',
-							source: citations[index],
+							title: targetCitation?.source?.name || 'Embedded Content',
+							source: targetCitation,
 							chatId: chatId,
 							messageId: id,
 							sourceId: sourceId
 						});
 					}
 				} else {
-					selectedCitation = citations[index];
+					selectedCitation = { ...targetCitation, selectedChunkIndex: suffix };
 					showCitationModal = true;
 				}
 			} else {
-				selectedCitation = citations[index];
+				selectedCitation = { ...targetCitation, selectedChunkIndex: suffix };
 				showCitationModal = true;
 			}
 		}

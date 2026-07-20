@@ -1,6 +1,6 @@
 # PDF 水印与页边距清理清洗器设计规格说明书
 
-本说明书确立了在 **Chip Agentic RAG System** 中针对 PDF 格式的文档（如 timing/PDK specs）进行页眉页脚裁剪和水印物理擦除的设计规范，整合了基于像素坐标裁剪与特定内容擦除的物理清除方案，并规定了相关的独立评估对比工具的实现机制。
+本说明书确立了在 **Jbpragic RAG System** 中针对 PDF 格式的文档（如 timing/PDK specs）进行页眉页脚裁剪和水印物理擦除的设计规范，整合了基于像素坐标裁剪与特定内容擦除的物理清除方案，并规定了相关的独立评估对比工具的实现机制。
 
 ---
 
@@ -31,17 +31,17 @@
 
 ## 3. 脚本工具设计
 
-### 3.1 物理清理工具 [clean_pdf.py](file:///home/eason/proj/open-webui/chip_agent/scripts/clean_pdf.py)
+### 3.1 物理清理工具 [clean_pdf.py](file:///home/eason/proj/open-webui/jbprag/scripts/clean_pdf.py)
 * **功能**：独立执行 PDF 文件去水印和裁剪。
 * **输出**：生成一个物理干净的新 PDF，文件名为 `[original_name]_cleaned.pdf`，用于可视化校验正文是否被切除。
 
-### 3.2 提取文本对比工具 [compare_pdf_clean.py](file:///home/eason/proj/open-webui/chip_agent/scripts/compare_pdf_clean.py)
+### 3.2 提取文本对比工具 [compare_pdf_clean.py](file:///home/eason/proj/open-webui/jbprag/scripts/compare_pdf_clean.py)
 * **功能**：对两份 PDF 文件提取文本，进行 Diff 对比。
 * **展示效果**：在终端打印原始提取文本与清洗后提取文本的前 N 页（默认前 3 页）的差异。
   - 被清除的水印行以 `-` 标识（代表已物理剔除）。
   - 正文变动（如果有）以差异标识呈现。
 
-### 3.3 主导入流水线集成 [ingest_documents.py](file:///home/eason/proj/open-webui/chip_agent/scripts/ingest_documents.py)
+### 3.3 主导入流水线集成 [ingest_documents.py](file:///home/eason/proj/open-webui/jbprag/scripts/ingest_documents.py)
 * **参数**：增加 `--clean` 选项启用清洗流，默认 `--header-margin 50`，`--footer-margin 60`。
 * **工作流**：
   1. 如果 `--clean` 为 True，调用 `clean_pdf.py` 内部逻辑生成 `temp_clean_[random].pdf`。

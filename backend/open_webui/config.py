@@ -1385,7 +1385,7 @@ RAG_EXTERNAL_RERANKER_TIMEOUT = ConfigVar(
 RAG_TEXT_SPLITTER = ConfigVar(
     'RAG_TEXT_SPLITTER',
     'rag.text_splitter',
-    os.getenv('RAG_TEXT_SPLITTER', ''),
+    os.getenv('RAG_TEXT_SPLITTER', 'token'),
 )
 
 ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER = ConfigVar(
@@ -1403,7 +1403,7 @@ TIKTOKEN_ENCODING_NAME = ConfigVar(
 )
 
 
-CHUNK_SIZE = ConfigVar('CHUNK_SIZE', 'rag.chunk_size', int(os.getenv('CHUNK_SIZE', '1000')))
+CHUNK_SIZE = ConfigVar('CHUNK_SIZE', 'rag.chunk_size', int(os.getenv('CHUNK_SIZE', '2000')))
 
 CHUNK_MIN_SIZE_TARGET = ConfigVar(
     'CHUNK_MIN_SIZE_TARGET',
@@ -1414,7 +1414,7 @@ CHUNK_MIN_SIZE_TARGET = ConfigVar(
 CHUNK_OVERLAP = ConfigVar(
     'CHUNK_OVERLAP',
     'rag.chunk_overlap',
-    int(os.getenv('CHUNK_OVERLAP', '100')),
+    int(os.getenv('CHUNK_OVERLAP', '500')),
 )
 
 DEFAULT_RAG_TEMPLATE = """### Task:

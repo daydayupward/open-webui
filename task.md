@@ -1,8 +1,8 @@
-# Checklist: Document Category Expansion and Checklist Split
-
-- [x] 1. Update `chip_agent/src/ingestion/metadata_mapper.py` for new categories and aliasing (split checklists, merge foundry_doc into PDK).
-- [x] 2. Update `chip_agent/src/metadata.py` to align `normalize_metadata` and `QueryMetadata` schema with `metadata_mapper.py`.
-- [x] 3. Update `chip_agent/src/prompts/supervisor_prompt.py` for the 9-category system prompt and few-shot routing.
-- [x] 4. Update unit tests in `chip_agent/tests/test_metadata_mapper.py` to test the new category aliases.
-- [x] 5. Update unit tests in `chip_agent/tests/test_supervisor.py` to align with new categories.
-- [x] 6. Run the pytest suite and verify that all 209+ tests pass without regression.
+- [x] Implement Option 3 & 2 Parent-Child Chunker in `src/ingestion/chunker.py`
+  - [x] Implement Greedy Parent Chunker (up to 2000 tokens, 500 overlap) with Image Colocation (Option 2)
+  - [x] Implement Child Splitter (up to 300 tokens) linking to parent text
+- [x] Support parent text loading in retrieval logic `src/retrieval/base.py`
+  - [x] Update `BaseRetriever.retrieve` to check for `parent_text` and swap it into `page_content`
+  - [x] Update `BaseRetriever.aretrieve` to check for `parent_text` and swap it into `page_content`
+- [x] Verification
+  - [x] Run test/verification to check ingestion pipelines and verify vector matches yield correct parent text

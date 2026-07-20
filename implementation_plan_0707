@@ -1,0 +1,126 @@
+# RAG 原始文件预览�# RAG 演进计划：Agentic 架构 (Self-RAG) & VLM 图像检索 (DRC Rule)
+
+根据最新需求，本次迭代将**暂时搁置父子分块（Parent-Child Chunking）**，优先实现 **Agentic 架构（Self-RAG 闭环反思）** 以及 **VLM 识别图片的 RAG（支持用户上传 DRC Error/Layout 截图提问，自动检索并匹配对应的 DRC Rule）**。同时，默认推理模型切换为 `deepseek-v4-flash`。
+
+## User Review Required
+
+> [!IMPORTANT]
+> **VLM 图片提问的处理流程：**
+> 由于默认推理模型 `deepseek-v4-flash` 为纯文本模型，为了实现“用图片提问并查找对应 DRC 规则”，我们将采用 **图像描述转换（Image-to-Text Bridging）** 的 SOTA 架构：
+> 1. 在请求最开始拦截包含图像（如 base64 `image_url`）的用户消息。
+> 2. 调用配置在 JMApi 的 `VISUAL_MODEL`（例如 `gpt-5.4`）分析布局/DRC 截图，提取出关键的 DRC 规则代号（如 M1.SP.1）、图层、间距数值和错误描述。
+> 3. 将视觉分析得到的详细文本描述，拼接追加至用户的原始文本提问中。
+> 4. 该转换后的文本提问将无缝流转至 text-based `Supervisor` 和 `pdk_expert`（向量数据库检索及 `deepseek-v4-flash` 推理），从而高精度匹配并召回对应的 DRC 规则文档。
+
+> [!NOTE]
+> 这种多模态桥接设计不仅极大地提高了 DRC 规则的召回率，而且完全兼容了现有的向量库和纯文本大模型（`deepseek-v4-flash`）。
+
+---
+
+## 1. 默认模型切换 (deepseek-v4-flash)
+
+将系统默认大模型由 `nvidia-nemotron-3-super-120b-a12b-fp8` 切换为 `deepseek-v4-flash`。
+
+### 修改位置
+
+#### [MODIFY] jbprag/.env
+- 修改 `LLM_MODEL='nvidia-nemotron-3-super-120b-a12b-fp8'` 为 `LLM_MODEL='deepseek-v4-flash'`。
+- 确保 `OPENAI_API_BASE_URL='http://10.1.88.119:8100/v1'` 正确配置（根据 `env.model.md`，在该节点上运行 `deepseek-v4-flash`）。
+
+#### [MODIFY] open-webui/.env
+- 添加环境变量 `DEFAULT_MODELS='deepseek-v4-flash'`。
+
+#### [MODIFY] jbprag/src/settings.py
+- 将 `LLM_MODEL` 的 pydantic 默认值更新为 `"deepseek-v4-flash"`。
+
+---
+
+## 2. VLM 图像检索 (DRC Rule Image RAG)
+
+支持前端用户上传图片（DRC 错误标注或版图截图）并提问。
+
+### 修改位置
+
+#### [MODIFY] jbprag/src/api_models.py
+- 修改 `ChatMessage` 中 `content` 字段的类型定义，由 `str` 改为 `Union[str, List[dict], Any]`，以防止 Pydantic 在解析前端发送的含有 `image_url` 的列表格式时发生反序列化报错（422/500）。
+
+#### [MODIFY] jbprag/src/message_utils.py
+- **新增多模态检测与转换**：
+  - 实现 `preprocess_multimodal_messages(messages)` 异步方法。
+  - 遍历历史消息，若检测到最新的 `HumanMessage` 含有图片，则提取其图片 base64 内容。
+  - 调用 `get_visual_llm()`，使用专用 Prompt（如：“请识别图中所示的芯片版图/DRC错误。指出关键的 DRC 规则名、层名、坐标和错误文本描述”）获取描述。
+  - 将此描述作为文本追加到 `messages` 的文本内容中，供后续的路由和检索模块使用。
+- 修改 `openai_to_langchain` 方法，使其能正确解析包含文本和 `image_url` 的 dict 列表。
+
+---
+
+## 3. Agentic 架构 (Self-RAG 自我反思循环)
+
+在检索和回答生成阶段，引入评估机制，避免不相关文档干扰和模型幻觉。
+
+### 修改位置
+
+#### [NEW] jbprag/src/evaluators.py
+- 实现三个核心的 LLM Evaluator（使用 `deepseek-v4-flash` 快速推理，以 JSON 格式输出判定结果）：
+  1. `grade_document_relevance(doc, query)`：判定文档与问题是否相关（`{"binary_score": "yes" | "no"}`）。
+  2. `grade_hallucination(generation, documents)`：判定生成答案是否基于检索的文档，无幻觉（`{"binary_score": "yes" | "no"}`）。
+  3. `grade_answer_completeness(generation, query)`：判定生成答案是否完整解答了用户提问（`{"binary_score": "yes" | "no"}`）。
+  4. `rewrite_query(query)`：生成优化后的检索 Query，以便重新检索。
+
+#### [MODIFY] jbprag/src/experts/pdk_expert.py (以及 eda_script_expert, metrics_analyst)
+- 重构专家节点内部执行逻辑，实现 Self-RAG 循环：
+  1. **检索阶段 (Retrieve)**：利用当前的 `query` 进行向量检索。
+  2. **评估相关性 (Grade Docs)**：过滤出相关文档。如果所有文档都不相关，则执行 `rewrite_query`，重新检索（限制最大重试 2 次）。如果依然没有，则在无 Context 情况下生成或提示未找到相关规则。
+  3. **回答生成 (Generate)**：基于过滤后的相关文档生成初步回答。
+  4. **幻觉与完整性评估 (Verify)**：
+     - 若 `grade_hallucination` 失败（检测到幻觉），则重新生成（最多重试 2 次）。
+     - 若 `grade_answer_completeness` 失败，则结合文档重新生成。
+  5. 返回最终经过多轮反思、校验后的可信回答。
+
+---
+
+## Verification Plan
+
+### Automated Verification
+- 运行现有的 pytest，确保流程无报错。
+- 编写测试脚本（如 `test_vlm_rag.py`），传入带有 DRC 规则截图（如 base64 模拟）的 `ChatRequest`，验证 VLM 成功转换为描述并正确召回对应的 PDK 规则。
+
+### Manual Verification
+- 在 Open-WebUI 前端上传一张带有 DRC 标志或版图错误的截图，并提问：“如何修复这个 DRC 错误？”，观察系统是否成功定位并返回对应的 PDK DRC 规则描述。
+- 检查回答的内容来源，验证其是否经过 Self-RAG 流程（查看后台 Log 是否打印了 `[Self-RAG] Document grading...` 等调试信息）。��检索到的文档）、`generation`（生成的草稿）、`iterations`（循环次数，防止死循环）等。
+
+#### [MODIFY] jbprag/src/graph.py
+- **重构路由逻辑**：现有的结构是 `Supervisor -> Expert -> Finalizer`。
+- **引入评估循环**：
+  - `retriever_node`：专家获取相关文档。
+  - `grader_node`：评估文档与 Query 是否相关，如果全部不相关，则重写 Query（Rewrite）或者尝试进行网络搜索。
+  - `generate_node`：基于相关文档生成回答。
+  - `hallucination_grader_node`：评估回答是否脱离了检索提供的 Context。如果出现幻觉，则重试生成。
+  - `answer_grader_node`：评估回答是否解决了用户的核心 Query。
+- 添加上述条件边（Conditional Edges），实现 Agentic Loop。
+
+#### [NEW] jbprag/src/evaluators.py
+- 增加一系列 LLM 裁判（Grader）的 Prompt 模板：`document_grader`, `hallucination_grader`, `answer_grader`。
+
+## 4. VLM (多模态) 方案评估及改进空间
+
+当前项目在 `.env` 中预留了 `VISUAL_API_BASE_URL`，但目前处理流程仍聚焦于纯文本。对于芯片设计领域（EDA、PDK），文档中往往包含大量**架构图、波形图、版图截图及复杂表格**。
+
+### 目前 VLM 方案的不足
+- `loader.py` 目前只能摄入预处理好的 `.jsonl` 文本数据。
+- 没有在 Ingestion（切分）阶段保存图片的向量化特征。
+- 如果用户通过 Open-WebUI 上传 PDF，Open-WebUI 自带了 OCR 提取，但这会丢失复杂的版面和图表关联。
+
+### SOTA 改进建议 (后续计划)
+1. **Visual RAG (ColPali)**：直接将 PDF 的每一页转化为图片，使用 ColPali（基于视觉语言模型）直接生成整页图片的 Embedding 并存储。这彻底跳过了 OCR 和容易出错的文本解析步骤，图文信息零损耗。
+2. **多模态解析 (MinerU/LayoutPDFReader)**：如果在 Ingestion 阶段使用，可以将图片和表格单独抠出，调用 `VISUAL_MODEL` 对每张图生成详细的文字描述 (Image Captioning)，并与上下文文本拼接在一起做向量化。
+3. **实现建议**：由于本次优先实现 Phase 1 和 3，建议后续引入 `MinerU` 作为 `jbprag` 的新增 `pdf_loader`，将图片通过 VLM 转为文字块。
+
+## Verification Plan
+### Automated Tests
+- 运行现有的 pytest，确保基础路由不会因为图节点的增加而失效。
+- 手动 mock 测试 Self-RAG：输入一个明显无法从文档中找到的问题，验证 Grader 是否会正确拒答或触发重写机制。
+
+### Manual Verification
+- 测试默认模型是否在前端新建对话时直接显示为 `deepseek-v4-flash`。
+- 提问以确认返回的上下文来源于 Parent Chunk（内容比之前更长更完整）。

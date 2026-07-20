@@ -12,19 +12,19 @@
 
 ### File Structure Changes
 
-- **Create**: `chip_agent/scripts/clean_pdf.py` (PDF physical watermark & margin eraser)
-- **Create**: `chip_agent/scripts/compare_pdf_clean.py` (CLI visual comparative diff tool)
-- **Modify**: `chip_agent/scripts/ingest_documents.py` (Integrate optional cleaning stage)
-- **Create**: `chip_agent/tests/test_pdf_cleaner.py` (Unit tests for the cleaner and regex logic)
+- **Create**: `jbprag/scripts/clean_pdf.py` (PDF physical watermark & margin eraser)
+- **Create**: `jbprag/scripts/compare_pdf_clean.py` (CLI visual comparative diff tool)
+- **Modify**: `jbprag/scripts/ingest_documents.py` (Integrate optional cleaning stage)
+- **Create**: `jbprag/tests/test_pdf_cleaner.py` (Unit tests for the cleaner and regex logic)
 
 ---
 
 ### Task 1: Create the PDF physical cleaning script
 
 **Files:**
-- Create: `chip_agent/scripts/clean_pdf.py`
+- Create: `jbprag/scripts/clean_pdf.py`
 
-- [ ] **Step 1: Write the code in `chip_agent/scripts/clean_pdf.py`**
+- [ ] **Step 1: Write the code in `jbprag/scripts/clean_pdf.py`**
   Implement the PDF redaction using PyMuPDF.
 
 ```python
@@ -115,10 +115,10 @@ if __name__ == "__main__":
 ```
 
 - [ ] **Step 2: Add execute permission to the cleaner script**
-  Run: `chmod +x chip_agent/scripts/clean_pdf.py`
+  Run: `chmod +x jbprag/scripts/clean_pdf.py`
 
 - [ ] **Step 3: Commit the cleaner script**
-  Run: `git add chip_agent/scripts/clean_pdf.py`
+  Run: `git add jbprag/scripts/clean_pdf.py`
   Run: `git commit -m "feat: add clean_pdf.py physical PDF cleaner"`
 
 ---
@@ -126,9 +126,9 @@ if __name__ == "__main__":
 ### Task 2: Create the PDF comparison script
 
 **Files:**
-- Create: `chip_agent/scripts/compare_pdf_clean.py`
+- Create: `jbprag/scripts/compare_pdf_clean.py`
 
-- [ ] **Step 1: Write the comparison logic in `chip_agent/scripts/compare_pdf_clean.py`**
+- [ ] **Step 1: Write the comparison logic in `jbprag/scripts/compare_pdf_clean.py`**
   Implement text diff printing.
 
 ```python
@@ -204,8 +204,8 @@ if __name__ == "__main__":
 ```
 
 - [ ] **Step 2: Add execute permission and commit**
-  Run: `chmod +x chip_agent/scripts/compare_pdf_clean.py`
-  Run: `git add chip_agent/scripts/compare_pdf_clean.py`
+  Run: `chmod +x jbprag/scripts/compare_pdf_clean.py`
+  Run: `git add jbprag/scripts/compare_pdf_clean.py`
   Run: `git commit -m "feat: add compare_pdf_clean.py PDF comparison tool"`
 
 ---
@@ -213,9 +213,9 @@ if __name__ == "__main__":
 ### Task 3: Integrate optional cleaning stage into Ingestion CLI
 
 **Files:**
-- Modify: `chip_agent/scripts/ingest_documents.py`
+- Modify: `jbprag/scripts/ingest_documents.py`
 
-- [ ] **Step 1: Edit `chip_agent/scripts/ingest_documents.py` to add `--clean` parameters**
+- [ ] **Step 1: Edit `jbprag/scripts/ingest_documents.py` to add `--clean` parameters**
   Update the script to run PDF cleaning before feeding it to `MarkItDown`.
 
 ```python
@@ -225,7 +225,7 @@ if __name__ == "__main__":
 *(Exact replacement content will be written to `ingest_documents.py` using replace_file_content in execution)*
 
 - [ ] **Step 2: Commit the pipeline integration**
-  Run: `git add chip_agent/scripts/ingest_documents.py`
+  Run: `git add jbprag/scripts/ingest_documents.py`
   Run: `git commit -m "feat: integrate optional PDF watermark cleaner in ingest_documents"`
 
 ---
@@ -233,17 +233,17 @@ if __name__ == "__main__":
 ### Task 4: Create unit tests for PDF cleaner
 
 **Files:**
-- Create: `chip_agent/tests/test_pdf_cleaner.py`
+- Create: `jbprag/tests/test_pdf_cleaner.py`
 
-- [ ] **Step 1: Write mock tests in `chip_agent/tests/test_pdf_cleaner.py`**
+- [ ] **Step 1: Write mock tests in `jbprag/tests/test_pdf_cleaner.py`**
   Verify physical page coordinate math and text regular expression sanitizing functions.
 
 - [ ] **Step 2: Run unit tests**
-  Run: `PYTHONPATH=chip_agent python3 -m pytest chip_agent/tests/test_pdf_cleaner.py -v`
+  Run: `PYTHONPATH=jbprag python3 -m pytest jbprag/tests/test_pdf_cleaner.py -v`
   Expected: PASS
 
 - [ ] **Step 3: Commit unit tests**
-  Run: `git add chip_agent/tests/test_pdf_cleaner.py`
+  Run: `git add jbprag/tests/test_pdf_cleaner.py`
   Run: `git commit -m "test: add unit tests for PDF watermark cleaner"`
 
 ---
@@ -251,5 +251,5 @@ if __name__ == "__main__":
 ### Task 5: Full verification
 
 - [ ] **Step 1: Run full test suite**
-  Run: `PYTHONPATH=chip_agent python3 -m pytest -v`
+  Run: `PYTHONPATH=jbprag python3 -m pytest -v`
   Expected: All 211+ tests pass

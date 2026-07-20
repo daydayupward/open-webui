@@ -18,7 +18,7 @@
 
 ### 1.2 主流大语言模型 (LLM)
 * **本地 GPUStack 托管版（默认）**
-  * 名称：`nvidia-nemotron-3-super-120b-a12b-fp8` / `gpt-oss-120b`
+  * 名称：`nvidia-nemotron-3-super-120b-a12b-fp8` / `gpt-oss-120b` / `deepseek-v4-flash`
   * 接口地址：`http://10.1.88.119:8100/v1` （域名：`http://jmaicloud.jaguarmicro.com:8100/v1`）
   * API Key：`gpustack_8a84577e7871ac6c_2c3d4ef8e376a5d2fca5ceb8e1cc4221`
 * **JMApi 托管大参数版**
@@ -39,7 +39,7 @@
 
 ## 2. Chip-RAG 配置与模型选择方式
 
-我们在 `chip_agent/src/settings.py` 中实现了配置字段，在 `chip_agent/src/utils.py` 中封装了模型选择器。您可以通过直接修改 [chip_agent/.env](file:///home/eason/proj/open-webui/chip_agent/.env) 文件完成模型切换：
+我们在 `jbprag/src/settings.py` 中实现了配置字段，在 `jbprag/src/utils.py` 中封装了模型选择器。您可以通过直接修改 [jbprag/.env](file:///home/eason/proj/open-webui/jbprag/.env) 文件完成模型切换：
 
 ### 2.1 主模型选择 (LLM Model Selection)
 如果您希望使用高性能的 `deepseek-v4-pro` 或 `gpt-5.4` 作为回答生成主模型，只需在 `.env` 中修改注释状态：

@@ -649,6 +649,7 @@
 				}
 
 				history.messages[event.message_id] = message;
+				history = history;
 			}
 		} else {
 			// Non-active chat completion: queue stays in the global store.
@@ -1766,7 +1767,7 @@
 			await handleOpenAIError(error, message);
 		}
 
-		if (sources && !message?.sources) {
+		if (sources) {
 			message.sources = sources;
 		}
 

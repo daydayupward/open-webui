@@ -2728,3 +2728,48 @@ async def process_files_batch(
                 file_errors.append(BatchProcessFilesResult(file_id=file_result.file_id, status='failed', error=str(e)))
 
     return BatchProcessFilesResponse(results=file_results, errors=file_errors)
+
+
+# ---------------------------------------------------------------------------
+# Chip RAG Admin Proxy
+# ---------------------------------------------------------------------------
+import aiohttp
+from fastapi.responses import JSONResponse
+import json
+
+CHIP_RAG_ADMIN_URL = "http://localhost:8000/admin"
+
+@router.api_route("/chip-rag/admin/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def chip_rag_admin_proxy(path: str, request: Request, user=Depends(get_admin_user)):
+    url = f"{CHIP_RAG_ADMIN_URL}/{path}"
+    params = dict(request.query_params)
+    headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
+    
+    # Read raw body
+    body = await request.body()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.request(
+                method=request.method,
+                url=url,
+                params=params,
+                headers=headers,
+                data=body,
+                timeout=300
+            ) as resp:
+                content = await resp.read()
+                if resp.content_type == "application/json":
+                    try:
+                        return JSONResponse(
+                            content=json.loads(content.decode("utf-8", errors="ignore")),
+                            status_code=resp.status
+                        )
+                    except Exception:
+                        pass
+                return JSONResponse(
+                    content=content.decode("utf-8", errors="ignore"),
+                    status_code=resp.status
+                )
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})

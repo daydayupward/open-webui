@@ -1,67 +1,37 @@
-# Implementation Plan: Unified Document Category Expansion and Checklist Split
+# RAG 模块无返回数据问题修复计划
 
-This plan details the implementation of a refined 9-category document taxonomy for the chip backend physical design RAG pipeline, consolidating `Foundry_Doc` under `PDK` and splitting checklists between templates (`Platform_Flow`) and project results (`Project_Doc`).
+当测试 "what is sta" 等通用知识/文献类问题时，RAG 系统返回 "No matching data..."，表明检索模块未能获取到有效的文档片段。
 
-## User Review Required
+完整的实施方案已经直接输出至项目工作区，请点击下方链接直接在编辑器中阅读：
 
 > [!IMPORTANT]
-> 1. **Foundry Consolidation**: `Foundry_Doc` is mapped and merged directly under `PDK` (representing PDK & Foundry Manuals) to avoid category clutter.
-> 2. **Checklist Division**:
->    - Standard templates and sign-off checklists are routed to `Platform_Flow`.
->    - Project-specific checklist run results/logs are routed to `Project_Doc` and require a `project_id`.
-> 3. **Legacy Categories**: Legacy categories `"General"` and `"Training"` are retired and mapped to `"Literature"` (representing textbooks, papers, training guides, and general reference).
-
-## Proposed Changes
-
-### Metadata Model & Mappings
-
-#### [MODIFY] [metadata_mapper.py](file:///home/eason/proj/open-webui/chip_agent/src/ingestion/metadata_mapper.py)
-- Ensure `VALID_CATEGORIES` contains: `{"PDK", "StdCell", "SRAM", "IP", "EDA", "Platform_Flow", "Project_Doc", "Script", "Literature"}`.
-- Update `_normalize_category` to support synonyms and aliases for all 9 categories:
-  - `pdk` / `process` / `foundry` / `foundry_doc` / `foundry_manual` -> `PDK`
-  - `stdcell` / `standard_cell` / `liberty` / `lib` -> `StdCell`
-  - `sram` / `memory` / `macro` -> `SRAM`
-  - `platform` / `flow` / `methodology` / `platform_flow` / `checklist_template` / `signoff_template` -> `Platform_Flow`
-  - `script` / `tcl` / `python` / `makefile` / `csh` / `sh` -> `Script`
-  - `literature` / `paper` / `book` / `textbook` / `general` / `training` / `team` -> `Literature`
-  - `project_doc` / `project` / `doc` / `checklist_result` / `project_checklist` -> `Project_Doc`
-  - `ip` / `ip_doc` / `datasheet` / `manual` -> `IP`
-  - `eda` / `tool` / `command` -> `EDA`
-
-#### [MODIFY] [metadata.py](file:///home/eason/proj/open-webui/chip_agent/src/metadata.py)
-- Update `QueryMetadata` schema category description.
-- Align `normalize_metadata` mapping logic to be identical to `_normalize_category` in `metadata_mapper.py`.
+> **工作区详细方案路径**：[2026-07-07-rag-bugfix-plan.md](file:///home/eason/proj/open-webui/docs/superpowers/plans/2026-07-07-rag-bugfix-plan.md)
 
 ---
 
-### Prompt Engineering (Routing & Extraction)
+## 方案概要
 
-#### [MODIFY] [supervisor_prompt.py](file:///home/eason/proj/open-webui/chip_agent/src/prompts/supervisor_prompt.py)
-- Update `SYSTEM_PROMPT`'s category schema list to include the 9 new categories.
-- Update metadata extraction rules and examples to clarify the routing/categories:
-  - `PDK`: Process design kit rules, DRC/LVS decks, and Foundry Manuals.
-  - `Platform_Flow`: Automated flow scripts/guides, standard sign-off checklist templates.
-  - `Project_Doc`: Project specs, PRDs, and filled/completed project sign-off checklist results.
-- Add few-shot examples for queries targeting checklist templates vs checklist results.
+### 1. 根本原因
+* 通用概念问题（如 STA）被 Supervisor 正确归入 `Literature` 类别，并路由至 `metrics_analyst`。
+* `metrics_subgraph.py` 的 `retrieve_docs_node` 之前被硬编码为仅通过 `project_retriever` 在 `project_docs` 集合中检索。
+* 但 `project_docs` 集合仅有 4 个项目特定 specs 块，不含任何时序分析通用文档。而多达 14 万块的 Cadence Innovus 官方手册则存储在 `eda_manuals` 集合中。
+* 此外，`categories: ["Literature"]` 过滤器与 `eda_manuals` 中的 `EDA` 标签不匹配，导致即使跨集合查询也会被元数据过滤为 0 结果。
+
+### 2. 修复逻辑
+* **多集合动态分发**：根据 Supervisor 预测的元数据分类，动态分发至 `pdk_rules`、`eda_manuals` 和 `project_docs` 集合中执行检索。例如，`Literature` 会同时并发检索 `project_docs` 与 `eda_manuals` 集合。
+* **元数据类别匹配清洗**：在分发时拷贝并过滤 categories 参数，确保调用各 collection 的检索器时不会因为类别过滤器不匹配而产生 0 结果。
+* **合并与精排**：使用 asyncio 并行检索，将多集合返回的候选 chunks 合并后根据 Reranker 评分倒序排列，取 Top-K 最佳 chunks 送入 LLM 总结。
 
 ---
 
-### Test Suite Alignment
+## 拟修改的文件规划
 
-#### [MODIFY] [test_metadata_mapper.py](file:///home/eason/proj/open-webui/chip_agent/tests/test_metadata_mapper.py)
-- Update `TestNormalizeCategory` to verify:
-  - `general` -> `Literature`
-  - `foundry_doc` -> `PDK`
-  - `checklist_template` -> `Platform_Flow`
-  - `checklist_result` -> `Project_Doc`
-  - `stdcell` -> `StdCell`
-  - `sram` -> `SRAM`
+### [MODIFY] [metrics_subgraph.py](file:///home/eason/proj/open-webui/jbprag/src/experts/metrics_subgraph.py)
+* 重构 `retrieve_docs_node` 函数，实现并行分发与合并重新精排的逻辑。
 
-#### [MODIFY] [test_supervisor.py](file:///home/eason/proj/open-webui/chip_agent/tests/test_supervisor.py)
-- Update `test_metadata_normalization` to use `Project_Doc` instead of `Project` and map `general` to `Literature`.
-- Update mock assertions to check for canonicalized `Literature` and `Project_Doc` instead of `General` or `Project`.
+---
 
-## Verification Plan
+## 验证计划
 
-### Automated Tests
-- Run `wsl sh -c "cd /home/eason/proj/open-webui/chip_agent && PYTHONPATH=. python3 -m pytest"` to ensure all 209 unit tests compile, run, and pass.
+1. **测试脚本验证**：运行 `scratch/test_dispatcher.py` 验证 "What is STA" 能跨集合从 `eda_manuals` 召回正确的 Timing 相关 chunks。
+2. **手动作业联调**：在 Open WebUI 聊天框中提问 "what is sta"，确认能成功返回参考 Cadence 手册 hometown 时序定义和引用的角标。
