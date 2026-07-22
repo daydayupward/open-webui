@@ -59,7 +59,18 @@ async def pdk_expert_node(state: AgentState) -> dict:
     # Self-RAG: Generate and Grade Answer
     max_generation_attempts = 0
     final_response = None
-    local_messages = list(state["messages"])
+    
+    from langchain_core.messages import AIMessage, HumanMessage
+    local_messages = []
+    for m in state.get("messages", []):
+        if isinstance(m, AIMessage):
+            content = m.content
+            for marker in ("**参考来源**:", "**参考来源**：", "**相关问题**:", "**相关问题**：", "追问"):
+                if marker in content:
+                    content = content.split(marker)[0]
+            local_messages.append(AIMessage(content=content.strip()))
+        else:
+            local_messages.append(m)
     
     for j in range(max_generation_attempts + 1):
         context_list = []

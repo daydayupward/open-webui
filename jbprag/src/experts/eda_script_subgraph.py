@@ -92,7 +92,17 @@ async def generate_node(state: EDASubgraphState) -> dict:
     )
     
     max_attempts = 0
-    local_messages = list(state.get("messages", []))
+    from langchain_core.messages import AIMessage, HumanMessage
+    local_messages = []
+    for m in state.get("messages", []):
+        if isinstance(m, AIMessage):
+            content = m.content
+            for marker in ("**参考来源**:", "**参考来源**：", "**相关问题**:", "**相关问题**：", "追问"):
+                if marker in content:
+                    content = content.split(marker)[0]
+            local_messages.append(AIMessage(content=content.strip()))
+        else:
+            local_messages.append(m)
     final_response = None
     
     for i in range(max_attempts + 1):
