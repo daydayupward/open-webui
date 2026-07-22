@@ -57,7 +57,7 @@ async def pdk_expert_node(state: AgentState) -> dict:
             relevant_chunks = chunks
             
     # Self-RAG: Generate and Grade Answer
-    max_generation_attempts = 2
+    max_generation_attempts = 0
     final_response = None
     local_messages = list(state["messages"])
     

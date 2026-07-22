@@ -91,7 +91,7 @@ async def generate_node(state: EDASubgraphState) -> dict:
         content=EDA_SCRIPT_GENERATION_PROMPT.format(context=context_str)
     )
     
-    max_attempts = 2
+    max_attempts = 0
     local_messages = list(state.get("messages", []))
     final_response = None
     

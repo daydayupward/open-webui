@@ -338,7 +338,7 @@ async def summarize_node(state: MetricsSubgraphState) -> dict:
         )
     )
 
-    max_attempts = 2
+    max_attempts = 0
     local_messages = list(state.get("messages", []))
     final_response = None
 

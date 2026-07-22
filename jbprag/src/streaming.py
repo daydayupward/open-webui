@@ -11,6 +11,7 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
     completion_id = f"chatcmpl-{uuid.uuid4().hex}"
     
     chunks_yielded = 0
+    sources_emitted = False
     try:
         async for event in graph.astream_events(initial_state, version="v2"):
             event_type = event.get("event")
@@ -48,12 +49,12 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
                             )
                             yield f"data: {json.dumps(chunk_data)}\n\n"
                             chunks_yielded += 1
-            elif event_type == "on_chain_end" and name in ("LangGraph", "__root__"):
+            elif event_type == "on_chain_end":
                 data = event.get("data", {})
                 output = data.get("output")
                 if isinstance(output, dict):
                     retrieved_docs = output.get("retrieved_docs", [])
-                    if retrieved_docs:
+                    if retrieved_docs and not sources_emitted:
                         sources_list = []
                         collection_map = {
                             "EDA": "eda_manuals",
@@ -83,7 +84,6 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
                             category = meta.get("category", "eda_manuals")
                             collection = collection_map.get(category, "eda_manuals")
 
-                            # Build context_url so CitationDrawer can fetch highlighted context
                             context_url = None
                             if doc_id:
                                 chunk_hint = urllib.parse.quote(page_content[:200], safe="")
@@ -115,8 +115,9 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
 
                         if sources_list:
                             yield f"data: {json.dumps({'sources': sources_list})}\n\n"
+                            sources_emitted = True
 
-                    if "final_answer" in output and "route" in output:
+                    if name in ("LangGraph", "__root__") and "final_answer" in output:
                         final_answer = output["final_answer"]
                         if not chunks_yielded and final_answer:
                             chunk_data = format_openai_chunk(
