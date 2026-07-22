@@ -124,21 +124,13 @@
 					_source = { ..._source, name: id, url: id };
 				}
 
-				const existingSource = acc.find((item) => item.id === id);
-
-				if (existingSource) {
-					existingSource.document.push(document);
-					existingSource.metadata.push(metadata);
-					if (distance !== undefined) existingSource.distances.push(distance);
-				} else {
-					acc.push({
-						id: id,
-						source: _source,
-						document: [document],
-						metadata: metadata ? [metadata] : [],
-						distances: distance !== undefined ? [distance] : []
-					});
-				}
+				acc.push({
+					id: id,
+					source: _source,
+					document: [document],
+					metadata: metadata ? [metadata] : [],
+					distances: distance !== undefined ? [distance] : []
+				});
 			});
 
 			return acc;
