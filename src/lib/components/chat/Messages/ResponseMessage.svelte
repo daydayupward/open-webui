@@ -876,7 +876,7 @@
 								<ContentRenderer
 									id={`${chatId}-${message.id}`}
 									content={cleanedContent}
-									sources={message.sources}
+									sources={message?.sources ?? message?.citations}
 									floatingButtons={message?.done &&
 										!readOnly &&
 										($settings?.showFloatingActionButtons ?? true)}

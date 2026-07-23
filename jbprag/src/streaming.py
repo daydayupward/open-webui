@@ -73,8 +73,15 @@ async def astream_chat_completion_events(graph, initial_state, model_name: str) 
                         import urllib.parse
 
                         for doc in retrieved_docs:
-                            page_content = doc.get("page_content") or doc.get("content") or ""
-                            meta = doc.get("metadata", {}) or {}
+                            if isinstance(doc, dict):
+                                page_content = doc.get("page_content") or doc.get("content") or ""
+                                meta = doc.get("metadata", {}) or {}
+                            elif hasattr(doc, "page_content"):
+                                page_content = doc.page_content
+                                meta = getattr(doc, "metadata", {}) or {}
+                            else:
+                                continue
+
                             raw_source_name = meta.get("name") or meta.get("source") or "Document"
                             source_name = os.path.basename(raw_source_name) if ("/" in raw_source_name or "\\" in raw_source_name) else raw_source_name
                             
