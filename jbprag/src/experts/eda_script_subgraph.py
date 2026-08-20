@@ -93,13 +93,17 @@ async def generate_node(state: EDASubgraphState) -> dict:
     
     max_attempts = 0
     from langchain_core.messages import AIMessage, HumanMessage
+    import re as _re
     local_messages = []
     for m in state.get("messages", []):
         if isinstance(m, AIMessage):
             content = m.content
-            for marker in ("**参考来源**:", "**参考来源**：", "**相关问题**:", "**相关问题**：", "追问"):
+            for marker in ("**参考来源**:", "**参考来源**：", "**相关问题**:", "**相关问题**：", "**相关图示**:", "追问"):
                 if marker in content:
                     content = content.split(marker)[0]
+            content = _re.sub(r'\n\d+\.\s+.{10,}\??\s*$', '', content.strip())
+            if len(content) > 2000:
+                content = content[:2000] + "..."
             local_messages.append(AIMessage(content=content.strip()))
         else:
             local_messages.append(m)
@@ -130,7 +134,20 @@ async def generate_node(state: EDASubgraphState) -> dict:
             local_messages = local_messages + [AIMessage(content=response.content), HumanMessage(content=feedback_prompt)]
         else:
             final_response = response
-            
+
+    # Post-process: clean up "相关问题" section to only keep 3 concise questions
+    import re as _re
+    if final_response and final_response.content:
+        rq_match = _re.search(r'\*\*相关问题\*\*[：:]\s*\n([\s\S]*)', final_response.content)
+        if rq_match:
+            body_before = final_response.content[:rq_match.start()]
+            rq_block = rq_match.group(1)
+            questions = _re.findall(r'^\s*\d+\.\s+.+', rq_block, _re.MULTILINE)
+            questions = [q.strip() for q in questions[:3]]
+            if questions:
+                cleaned_rq = "**相关问题**:\n" + "\n".join(questions)
+                final_response = AIMessage(content=body_before.rstrip() + "\n\n" + cleaned_rq)
+
     return {
         "previous_response": final_response.content,
         "messages": [final_response]

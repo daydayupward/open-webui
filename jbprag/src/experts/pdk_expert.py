@@ -57,17 +57,24 @@ async def pdk_expert_node(state: AgentState) -> dict:
             relevant_chunks = chunks
             
     # Self-RAG: Generate and Grade Answer
-    max_generation_attempts = 0
+    max_generation_attempts = 1
     final_response = None
     
     from langchain_core.messages import AIMessage, HumanMessage
+    import re as _re
     local_messages = []
     for m in state.get("messages", []):
         if isinstance(m, AIMessage):
             content = m.content
-            for marker in ("**参考来源**:", "**参考来源**：", "**相关问题**:", "**相关问题**：", "追问"):
+            # Strip reference/sources/footer sections from previous AI responses
+            for marker in ("**参考来源**:", "**参考来源**：", "**相关问题**:", "**相关问题**：", "**相关图示**:", "追问"):
                 if marker in content:
                     content = content.split(marker)[0]
+            # Also strip any trailing numbered questions that leaked through
+            content = _re.sub(r'\n\d+\.\s+.{10,}\??\s*$', '', content.strip())
+            # Truncate very long historical responses to save context
+            if len(content) > 2000:
+                content = content[:2000] + "..."
             local_messages.append(AIMessage(content=content.strip()))
         else:
             local_messages.append(m)
@@ -114,8 +121,21 @@ async def pdk_expert_node(state: AgentState) -> dict:
             logger.warning("[Self-RAG PDK] Generation grading failed but retry limit reached.")
             final_response = response
             
+    # Post-process: clean up "相关问题" section to only keep 3 concise questions
+    import re as _re
+    if final_response and final_response.content:
+        rq_match = _re.search(r'\*\*相关问题\*\*[：:]\s*\n([\s\S]*)', final_response.content)
+        if rq_match:
+            body_before = final_response.content[:rq_match.start()]
+            rq_block = rq_match.group(1)
+            questions = _re.findall(r'^\s*\d+\.\s+.+', rq_block, _re.MULTILINE)
+            questions = [q.strip() for q in questions[:3]]
+            if questions:
+                cleaned_rq = "**相关问题**:\n" + "\n".join(questions)
+                final_response = AIMessage(content=body_before.rstrip() + "\n\n" + cleaned_rq)
+
     serializable_chunks = [c.model_dump() for c in relevant_chunks]
-    
+
     # Save Trace to Observability Database
     try:
         import uuid

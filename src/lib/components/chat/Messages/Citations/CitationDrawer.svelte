@@ -140,6 +140,8 @@
 
 	const scrollToChunk = async () => {
 		await tick();
+		// Wait for DOM to render fullDocumentContent
+		await new Promise(r => setTimeout(r, 300));
 		const targetIdx = citation.selectedChunkIndex !== null && citation.selectedChunkIndex !== undefined ? parseInt(citation.selectedChunkIndex) : 0;
 		const el = document.getElementById(`citation-chunk-${targetIdx}`);
 		if (el) {
@@ -147,7 +149,7 @@
 		}
 	};
 
-	$: if (activeTab === 'chunks') {
+	$: if (activeTab === 'chunks' || fullDocumentContent) {
 		scrollToChunk();
 	}
 
@@ -160,6 +162,10 @@
 			activeTab = 'file';
 		} else if (selectedDoc.source?.url?.includes('http')) {
 			iframeUrl = getTextFragmentUrl(selectedDoc);
+			activeTab = 'file';
+		} else if (selectedDoc.metadata?.context_url) {
+			// jbprag source: show full document with highlight
+			iframeUrl = null;
 			activeTab = 'file';
 		} else {
 			iframeUrl = null;
@@ -314,7 +320,7 @@
 		</div>
 
 		<!-- Tabs -->
-		{#if iframeUrl}
+		{#if iframeUrl || fullDocumentContent}
 			<div class="flex border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-5 py-2 gap-2 text-xs">
 				<button
 					class="px-3 py-1 font-semibold rounded-lg transition-colors cursor-pointer {activeTab === 'file' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}"
@@ -332,7 +338,7 @@
 		{/if}
 
 		<!-- Body -->
-		<div class="flex-1 flex flex-col min-h-0 {activeTab === 'file' && iframeUrl ? 'p-0 overflow-hidden' : 'p-5 overflow-y-auto scrollbar-thin gap-4'}">
+		<div class="flex-1 flex flex-col min-h-0 {activeTab === 'file' && (iframeUrl || fullDocumentContent) ? 'p-0 overflow-hidden' : 'p-5 overflow-y-auto scrollbar-thin gap-4'}">
 			{#if activeTab === 'file' && iframeUrl}
 				<iframe
 					src={iframeUrl}

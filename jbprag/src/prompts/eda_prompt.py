@@ -17,6 +17,7 @@ Guidelines:
    At the end of your response, you MUST append:
    a. A reference sources list titled '**参考来源**:' containing a bulleted list of all source documents cited in the format `- [i] 文件名.pdf` (or the source name).
    b. A list of exactly 3 follow-up/suggested questions based on the user's query, titled '**相关问题**:' containing a numbered list `1. ...`, `2. ...`, `3. ...`.
+      CRITICAL: Each question MUST be a single concise sentence with NO explanation, NO context, NO preamble. Output ONLY the 3 numbered questions, nothing else after them.
 
 ### Few-Shot Examples
 Example 1:

@@ -42,13 +42,13 @@
 我们在 `jbprag/src/settings.py` 中实现了配置字段，在 `jbprag/src/utils.py` 中封装了模型选择器。您可以通过直接修改 [jbprag/.env](file:///home/eason/proj/open-webui/jbprag/.env) 文件完成模型切换：
 
 ### 2.1 主模型选择 (LLM Model Selection)
-如果您希望使用高性能的 `deepseek-v4-pro` 或 `gpt-5.4` 作为回答生成主模型，只需在 `.env` 中修改注释状态：
+如果您希望使用高性能的 `deepseek-v4-pro` 或 `gpt-5.6-sol` 作为回答生成主模型，只需在 `.env` 中修改注释状态：
 
 ```bash
-# 切换为 JMApi 托管的 deepseek-v4-pro / gpt-5.4 示例：
+# 切换为 JMApi 托管的 deepseek-v4-pro / gpt-5.6-sol 示例：
 OPENAI_API_BASE_URL='https://jmapi01.jaguarmicro.com'
 OPENAI_API_KEY='sk-4FdTM7qOGWDEKoO86FweSAbkANjnPlshni1kiHv3gTKj1rrZ'
-LLM_MODEL='deepseek-v4-pro'  # 或者是 'gpt-5.4'
+LLM_MODEL='deepseek-v4-pro'  # 或者是 'gpt-5.6-sol'
 ```
 
 ### 2.2 视觉模型与图片支持 (VLM Model Configuration)

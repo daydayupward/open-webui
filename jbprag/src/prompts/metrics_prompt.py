@@ -53,6 +53,7 @@ Guidelines:
    At the end of your response, you MUST append:
    a. A reference sources list titled '**参考来源**:' containing a bulleted list of all source documents cited in the format `- [i] 文件名.pdf` (or the source name).
    b. A list of exactly 3 follow-up/suggested questions based on the user's query, titled '**相关问题**:' containing a numbered list `1. ...`, `2. ...`, `3. ...`.
+      CRITICAL: Each question MUST be a single concise sentence with NO explanation, NO context, NO preamble. Output ONLY the 3 numbered questions, nothing else after them.
 
 ### Example response structure:
 Based on the metrics and timing reports, the project has a worst negative slack of -0.05ns [1] and a power consumption of 1.2W [2].

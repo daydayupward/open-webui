@@ -81,7 +81,7 @@ async def grade_document_relevance(doc_text: str, query: str) -> bool:
         return score == "yes"
     except Exception as e:
         logger.error("Doc grader failed: %s", e)
-        return True # Default to True on failure to avoid blocking
+        return False # Default to False on failure — reject on error to prevent hallucination
 
 async def grade_hallucination(generation: str, docs: list) -> bool:
     """Assess if the generated answer is grounded in retrieved documents."""
@@ -99,7 +99,7 @@ async def grade_hallucination(generation: str, docs: list) -> bool:
         return score == "yes"
     except Exception as e:
         logger.error("Hallucination grader failed: %s", e)
-        return True # Default to True on failure
+        return False # Default to False on failure — reject on error to prevent hallucination
 
 async def grade_answer_completeness(generation: str, query: str) -> bool:
     """Assess if the generated answer addresses the query."""
@@ -116,7 +116,7 @@ async def grade_answer_completeness(generation: str, query: str) -> bool:
         return score == "yes"
     except Exception as e:
         logger.error("Answer grader failed: %s", e)
-        return True
+        return False # Default to False on failure — reject on error to prevent hallucination
 
 async def rewrite_query(query: str) -> str:
     """Rewrite query to optimize RAG retrieval."""

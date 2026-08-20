@@ -40,6 +40,19 @@
 
 	let showPopover = false;
 	let buttonEl: HTMLButtonElement;
+	let popoverStyle = '';
+
+	function updatePopoverPosition() {
+		if (!buttonEl) return;
+		const rect = buttonEl.getBoundingClientRect();
+		const popoverWidth = 288; // w-72 = 18rem = 288px
+		let left = rect.left + rect.width / 2 - popoverWidth / 2;
+		// Clamp to viewport edges
+		left = Math.max(8, Math.min(left, window.innerWidth - popoverWidth - 8));
+		// Position above the button with small gap
+		const top = rect.top - 8;
+		popoverStyle = `position:fixed; left:${left}px; top:${top}px; transform:translateY(-100%); z-index:9999;`;
+	}
 
 	function handleViewSource(event: MouseEvent) {
 		event.stopPropagation();
@@ -60,7 +73,7 @@
 			aria-label={$i18n.t('View source: {{title}}', { title: formattedTitle(decodeString(displayTitle)) })}
 			class="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/80 hover:bg-blue-100/90 dark:bg-blue-950/30 dark:hover:bg-blue-900/40 border border-blue-100/50 dark:border-blue-900/30 px-1.5 py-0.5 rounded-md transition duration-150 inline-flex items-center align-baseline mx-0.5 cursor-pointer select-none"
 			on:click={handleButtonClick}
-			on:mouseenter={() => (showPopover = true)}
+			on:mouseenter={() => { updatePopoverPosition(); showPopover = true; }}
 			on:mouseleave={() => (showPopover = false)}
 			bind:this={buttonEl}
 		>
@@ -72,14 +85,11 @@
 		{#if showPopover}
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
-				class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl text-sm text-left pointer-events-auto"
+				class="w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl text-sm text-left pointer-events-auto"
+				style={popoverStyle}
 				on:mouseenter={() => (showPopover = true)}
 				on:mouseleave={() => (showPopover = false)}
 			>
-				<!-- Arrow -->
-				<div class="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 overflow-hidden">
-					<div class="w-3 h-3 bg-white dark:bg-gray-800 border-r border-b border-gray-200 dark:border-gray-700 rotate-45 -translate-y-1.5 mx-auto"></div>
-				</div>
 
 				<div class="flex flex-col gap-2 p-3">
 					<!-- Source name header -->

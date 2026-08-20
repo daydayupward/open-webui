@@ -53,7 +53,16 @@ async def chat_completions(req: ChatRequest):
         request_id = uuid.uuid4().hex
         lc_messages = openai_to_langchain(req.messages)
         lc_messages = await preprocess_multimodal_messages(lc_messages)
-        
+
+        # Sliding window: keep only the last N messages to prevent context bloat
+        MAX_HISTORY_MESSAGES = 6  # ~3 conversation turns (human + AI pairs)
+        if len(lc_messages) > MAX_HISTORY_MESSAGES:
+            logger.info(
+                "[Context] Truncating %d messages to last %d",
+                len(lc_messages), MAX_HISTORY_MESSAGES
+            )
+            lc_messages = lc_messages[-MAX_HISTORY_MESSAGES:]
+
         initial_state = {
             "messages": lc_messages,
             "request_id": request_id,
@@ -119,8 +128,56 @@ async def get_document_context(
     if not rows:
         return JSONResponse(status_code=404, content={"error": "Document not found", "doc_id": doc_id})
 
-    # Concatenate all chunks with paragraph breaks
-    full_text = "\n\n".join(row["document"] or "" for row in rows)
+    # Prefer parent_text (~2000 tokens) from metadata over child document (~300 tokens)
+    def _get_content(row):
+        meta = row.get("cmetadata") or {}
+        parent = meta.get("parent_text")
+        # Ensure parent_text is a non-empty string
+        if parent and isinstance(parent, str) and len(parent) > 50:
+            return parent
+        # Fallback: try source-based query for sibling chunks
+        return None
+
+    # Collect parent_text from rows
+    contents = [_get_content(row) for row in rows]
+    valid_contents = [c for c in contents if c]
+
+    if valid_contents:
+        full_text = "\n\n".join(valid_contents)
+    else:
+        # Fallback: query all chunks with the same source to reconstruct full document
+        first_meta = rows[0].get("cmetadata") or {}
+        source_path = first_meta.get("source", "")
+        if source_path:
+            try:
+                sibling_rows = execute_read_query(
+                    """
+                    SELECT e.document, e.cmetadata
+                    FROM langchain_pg_collection c
+                    JOIN langchain_pg_embedding e ON e.collection_id = c.uuid
+                    WHERE c.name = %s
+                      AND e.cmetadata->>'source' = %s
+                    ORDER BY e.cmetadata->>'chunk_id'
+                    """,
+                    (collection, source_path),
+                    timeout=10.0
+                )
+                # Try parent_text from siblings first, then fallback to document
+                sibling_contents = []
+                for sr in sibling_rows:
+                    sr_meta = sr.get("cmetadata") or {}
+                    pt = sr_meta.get("parent_text")
+                    if pt and isinstance(pt, str) and len(pt) > 50:
+                        if pt not in sibling_contents:
+                            sibling_contents.append(pt)
+                if sibling_contents:
+                    full_text = "\n\n".join(sibling_contents)
+                else:
+                    full_text = "\n\n".join((sr.get("document") or "") for sr in sibling_rows)
+            except Exception:
+                full_text = "\n\n".join((row.get("document") or "") for row in rows)
+        else:
+            full_text = "\n\n".join((row.get("document") or "") for row in rows)
 
     # If a chunk_text hint is provided, wrap that chunk in <mark> tags
     if chunk_text:

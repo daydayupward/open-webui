@@ -4083,6 +4083,18 @@ async def streaming_chat_response_handler(response, ctx):
                                         )
 
                                     if not choices:
+                                        # Handle sources-only events from upstream providers (e.g., jbprag RAG)
+                                        upstream_sources = data.get('sources')
+                                        if upstream_sources:
+                                            for src in upstream_sources:
+                                                await event_emitter(
+                                                    {
+                                                        'type': 'source',
+                                                        'data': src,
+                                                    }
+                                                )
+                                            continue
+
                                         error = data.get('error', {})
                                         if error:
                                             log.error('Provider returned error (streaming): %s', error)

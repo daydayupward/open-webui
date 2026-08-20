@@ -53,6 +53,20 @@ async def finalizer_node(state: AgentState) -> dict:
             else:
                 final_text += f"\n\n{image_md_blocks}"
                 
+    # Post-process: clean up "相关问题" section to only keep 3 concise questions
+    import re as _re
+    rq_match = _re.search(r'\*\*相关问题\*\*[：:]\s*\n([\s\S]*)', final_text)
+    if rq_match:
+        body_before = final_text[:rq_match.start()]
+        rq_block = rq_match.group(1)
+        # Extract only numbered lines (1. ... 2. ... 3. ...)
+        questions = _re.findall(r'^\s*\d+\.\s+.+', rq_block, _re.MULTILINE)
+        # Keep at most 3 questions, strip any trailing whitespace/newlines
+        questions = [q.strip() for q in questions[:3]]
+        if questions:
+            cleaned_rq = "**相关问题**:\n" + "\n".join(questions)
+            final_text = body_before.rstrip() + "\n\n" + cleaned_rq
+
     return {"final_answer": final_text}
 
 def build_graph():
